@@ -1,8 +1,8 @@
 import React from 'react';
-import type { AppProps } from 'next/app';
+import { AppProps } from 'next/app';
 import { AuthProvider } from '@/contexts/AuthContext';
-import 'antd/dist/reset.css';
-import '@/styles/globals.css';
+// Ant Design 5.x不需要单独引入样式
+import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (

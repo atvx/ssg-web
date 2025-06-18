@@ -2,18 +2,22 @@ import React, { useState, ReactNode } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { 
-  HomeIcon, 
-  ChartBarIcon, 
-  DocumentTextIcon, 
-  ClockIcon, 
-  UserIcon, 
-  BuildingOfficeIcon,
-  Bars3Icon,
-  XMarkIcon,
-  ArrowRightOnRectangleIcon
-} from '@heroicons/react/24/outline';
+  HomeOutlined, 
+  BarChartOutlined, 
+  FileTextOutlined, 
+  ClockCircleOutlined, 
+  UserOutlined, 
+  BankOutlined,
+  MenuOutlined,
+  CloseOutlined,
+  LogoutOutlined,
+  AimOutlined
+} from '@ant-design/icons';
+import { Layout as AntLayout, Menu, Button, Drawer } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 import clsx from 'clsx';
+
+const { Header, Sider, Content } = AntLayout;
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,21 +26,21 @@ interface LayoutProps {
 interface NavItem {
   name: string;
   href: string;
-  icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>;
+  icon: React.ReactNode;
   requiresAdmin?: boolean;
 }
 
 const navigation: NavItem[] = [
-  { name: '仪表板', href: '/dashboard', icon: HomeIcon },
-  { name: '销售数据', href: '/sales/data', icon: ChartBarIcon },
-  { name: '目标管理', href: '/sales/targets', icon: ChartBarIcon },
-  { name: '报表中心', href: '/sales/reports', icon: DocumentTextIcon },
-  { name: '任务中心', href: '/tasks', icon: ClockIcon },
-  { name: '个人设置', href: '/settings', icon: UserIcon },
-  { name: '组织管理', href: '/organizations', icon: BuildingOfficeIcon, requiresAdmin: true },
+  { name: '仪表板', href: '/dashboard', icon: <HomeOutlined /> },
+  { name: '销售数据', href: '/sales/data', icon: <BarChartOutlined /> },
+  { name: '目标管理', href: '/sales/targets', icon: <AimOutlined /> },
+  { name: '报表中心', href: '/sales/reports', icon: <FileTextOutlined /> },
+  { name: '任务中心', href: '/tasks', icon: <ClockCircleOutlined /> },
+  { name: '个人设置', href: '/settings', icon: <UserOutlined /> },
+  { name: '组织管理', href: '/organizations', icon: <BankOutlined />, requiresAdmin: true },
 ];
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const AppLayout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -51,153 +55,117 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     (item) => !item.requiresAdmin || (user && user.is_superuser)
   );
 
+  // 获取当前选中的菜单项
+  const getSelectedKeys = () => {
+    return filteredNavigation
+      .filter(item => isActive(item.href))
+      .map(item => item.href);
+  };
+
   return (
-    <div className="min-h-full">
-      {/* 移动端侧边栏 */}
-      <div
-        className={clsx(
-          'fixed inset-0 z-40 flex md:hidden',
-          sidebarOpen ? 'block' : 'hidden'
-        )}
+    <AntLayout className="min-h-screen">
+      {/* 移动端侧边栏抽屉 */}
+      <Drawer
+        placement="left"
+        closable={false}
+        onClose={() => setSidebarOpen(false)}
+        open={sidebarOpen}
+        width={250}
+        styles={{ body: { padding: 0 } }}
+        className="md:hidden"
       >
-        {/* 背景遮罩 */}
-        <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-75"
-          onClick={() => setSidebarOpen(false)}
-        />
-
-        {/* 侧边栏内容 */}
-        <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white pt-5 pb-4">
-          <div className="absolute top-0 right-0 -mr-12 pt-2">
-            <button
-              type="button"
-              className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="flex items-center h-16 px-4 bg-white border-b">
+            <span className="text-xl font-bold text-gray-900">销售助手</span>
+            <Button 
+              type="text" 
+              icon={<CloseOutlined />} 
               onClick={() => setSidebarOpen(false)}
-            >
-              <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
-            </button>
-          </div>
-
-          {/* Logo */}
-          <div className="flex flex-shrink-0 items-center px-4">
-            <span className="text-xl font-bold text-gray-900">销售助手</span>
+              className="ml-auto"
+            />
           </div>
 
           {/* 导航菜单 */}
-          <div className="mt-5 h-0 flex-1 overflow-y-auto">
-            <nav className="space-y-1 px-2">
-              {filteredNavigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={clsx(
-                    isActive(item.href)
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                    'group flex items-center px-2 py-2 text-base font-medium rounded-md'
-                  )}
-                >
-                  <item.icon
-                    className={clsx(
-                      isActive(item.href)
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500',
-                      'mr-4 flex-shrink-0 h-6 w-6'
-                    )}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
+          <Menu
+            mode="inline"
+            selectedKeys={getSelectedKeys()}
+            className="flex-1 border-0"
+            items={filteredNavigation.map(item => ({
+              key: item.href,
+              icon: item.icon,
+              label: <Link href={item.href}>{item.name}</Link>,
+            }))}
+          />
         </div>
-      </div>
+      </Drawer>
 
-      {/* 静态侧边栏（桌面端） */}
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex flex-grow flex-col overflow-y-auto border-r border-gray-200 bg-white pt-5">
-          {/* Logo */}
-          <div className="flex flex-shrink-0 items-center px-4">
-            <span className="text-xl font-bold text-gray-900">销售助手</span>
-          </div>
-
-          {/* 导航菜单 */}
-          <div className="mt-5 flex-grow flex flex-col">
-            <nav className="flex-1 space-y-1 px-2 pb-4">
-              {filteredNavigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={clsx(
-                    isActive(item.href)
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                    'group flex items-center px-2 py-2 text-sm font-medium rounded-md'
-                  )}
-                >
-                  <item.icon
-                    className={clsx(
-                      isActive(item.href)
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500',
-                      'mr-3 flex-shrink-0 h-6 w-6'
-                    )}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
+      {/* 桌面端侧边栏 */}
+      <Sider
+        width={200}
+        theme="light"
+        breakpoint="md"
+        className="hidden md:block shadow-sm"
+        style={{
+          height: '100vh',
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+        }}
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center justify-center border-b border-gray-200">
+          <span className="text-xl font-bold text-gray-900">销售助手</span>
         </div>
-      </div>
+
+        {/* 导航菜单 */}
+        <Menu
+          mode="inline"
+          selectedKeys={getSelectedKeys()}
+          style={{ height: 'calc(100% - 64px)', borderRight: 0 }}
+          items={filteredNavigation.map(item => ({
+            key: item.href,
+            icon: item.icon,
+            label: <Link href={item.href}>{item.name}</Link>,
+          }))}
+        />
+      </Sider>
 
       {/* 主内容区 */}
-      <div className="md:pl-64">
-        <div className="mx-auto flex flex-col flex-1">
-          {/* 顶部导航栏 */}
-          <div className="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white shadow">
-            <button
-              type="button"
-              className="border-r border-gray-200 px-4 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 md:hidden"
-              onClick={() => setSidebarOpen(true)}
+      <AntLayout className="md:ml-[200px]">
+        {/* 顶部导航栏 */}
+        <Header className="bg-white p-0 shadow-sm flex items-center justify-between">
+          <Button
+            type="text"
+            icon={<MenuOutlined />}
+            onClick={() => setSidebarOpen(true)}
+            className="ml-4 md:hidden"
+          />
+
+          <div className="flex items-center ml-auto mr-4">
+            {/* 用户信息 */}
+            <span className="mr-3 text-sm">
+              {user?.username || ''}
+            </span>
+            <Button
+              type="text"
+              icon={<LogoutOutlined />}
+              onClick={logout}
+              className="flex items-center text-gray-700"
             >
-              <Bars3Icon className="h-6 w-6" aria-hidden="true" />
-            </button>
-
-            <div className="flex flex-1 justify-between px-4">
-              <div className="flex flex-1"></div>
-              <div className="ml-4 flex items-center md:ml-6">
-                {/* 用户信息 */}
-                <div className="flex items-center">
-                  <span className="mr-2 text-sm text-gray-700">
-                    {user?.username || ''}
-                  </span>
-                  <button
-                    onClick={logout}
-                    className="inline-flex items-center text-sm text-gray-700 hover:text-gray-900"
-                  >
-                    <ArrowRightOnRectangleIcon className="h-5 w-5 mr-1" />
-                    退出
-                  </button>
-                </div>
-              </div>
-            </div>
+              退出
+            </Button>
           </div>
+        </Header>
 
-          {/* 页面内容 */}
-          <main className="flex-1">
-            <div className="py-6">
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-                {children}
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
-    </div>
+        {/* 页面内容 */}
+        <Content className="m-4 p-6 bg-white rounded shadow-sm">
+          {children}
+        </Content>
+      </AntLayout>
+    </AntLayout>
   );
 };
 
-export default Layout; 
+export default AppLayout; 

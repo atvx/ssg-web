@@ -64,25 +64,27 @@ export interface MonthlySalesTarget {
   year: number;
   month: number;
   target_income: number;
-  sort?: number;
+  car_count?: number;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface MonthlySalesTargetCreate {
   org_id: string;
+  org_name?: string;
   year: number;
   month: number;
   target_income: number;
-  sort?: number;
+  car_count?: number;
 }
 
 export interface MonthlySalesTargetUpdate {
   org_id?: string;
+  org_name?: string;
   year?: number;
   month?: number;
   target_income?: number;
-  sort?: number;
+  car_count?: number;
 }
 
 export interface SalesTargetProgress {

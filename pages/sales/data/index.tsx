@@ -49,13 +49,6 @@ const SalesDataPage: React.FC = () => {
     }
   };
 
-  // 首次加载和参数变化时获取数据
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchData();
-    }
-  }, [isAuthenticated, date, platform]);
-
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
   }

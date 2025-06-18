@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Select, DatePicker, ConfigProvider, Table, Progress } from 'antd';
+import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -39,6 +39,9 @@ const SalesTargetsPage: React.FC = () => {
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -65,25 +68,26 @@ const SalesTargetsPage: React.FC = () => {
     fetchOrgs();
   }, [isAuthenticated]);
 
-  // 获取销售目标列表
+  // 获取月目标列表
   const fetchTargets = async () => {
     if (isAuthenticated) {
       try {
         setIsLoadingData(true);
-        const params: any = { year, month };
+        const params: any = { year, month, skip: (currentPage - 1) * pageSize, limit: pageSize };
         if (selectedOrgId) {
           params.org_id = selectedOrgId;
         }
-        
         const response = await salesAPI.getSalesTargets(params);
         if (response.data.success && response.data.data) {
-          setTargets(response.data.data as EnhancedMonthlySalesTarget[]);
+          // 假设后端返回 { items: [], total: 100 }
+          setTargets(response.data.data.items || response.data.data); // 兼容老数据结构
+          setTotal(response.data.data.total || (response.data.data.length || 0));
           setError(null);
         } else {
-          setError('获取销售目标失败');
+          setError('获取月目标失败');
         }
       } catch (err) {
-        setError('获取销售目标失败，请稍后再试');
+        setError('获取月目标失败，请稍后再试');
       } finally {
         setIsLoadingData(false);
         setIsRefreshing(false);
@@ -91,10 +95,11 @@ const SalesTargetsPage: React.FC = () => {
     }
   };
 
-  // 监听筛选条件变化，重新获取数据
+  // 监听筛选条件和分页变化，重新获取数据
   useEffect(() => {
     fetchTargets();
-  }, [isAuthenticated, year, month, selectedOrgId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, year, month, selectedOrgId, currentPage, pageSize]);
 
   // 刷新数据
   const handleRefresh = () => {
@@ -117,9 +122,9 @@ const SalesTargetsPage: React.FC = () => {
     }
   };
 
-  // 删除销售目标
+  // 删除月目标
   const handleDelete = async (targetId: number) => {
-    if (!window.confirm('确定要删除此销售目标吗？')) {
+    if (!window.confirm('确定要删除此月目标吗？')) {
       return;
     }
 
@@ -129,10 +134,10 @@ const SalesTargetsPage: React.FC = () => {
         // 从列表中移除已删除的目标
         setTargets(targets.filter(target => target.id !== targetId));
       } else {
-        setError('删除销售目标失败');
+        setError('删除月目标失败');
       }
     } catch (err) {
-      setError('删除销售目标失败，请稍后再试');
+      setError('删除月目标失败，请稍后再试');
     }
   };
 
@@ -180,6 +185,10 @@ const SalesTargetsPage: React.FC = () => {
       dataIndex: 'year',
       key: 'year',
       render: (_, record) => `${record.year}年${record.month}月`,
+      sorter: (a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.month - b.month;
+      },
     },
     {
       title: '机构',
@@ -191,19 +200,22 @@ const SalesTargetsPage: React.FC = () => {
       title: '车辆配置',
       dataIndex: 'car_count',
       key: 'car_count',
-      render: (carCount) => carCount || '-',
+      render: (carCount) => carCount !== undefined && carCount !== null ? carCount : '-',
+      sorter: (a, b) => (a.car_count || 0) - (b.car_count || 0),
     },
     {
       title: '目标金额',
       dataIndex: 'target_income',
       key: 'target_income',
-      render: (amount) => `¥${amount.toLocaleString()}`,
+      render: (amount) => `${amount.toLocaleString()}`,
+      sorter: (a, b) => (a.target_income || 0) - (b.target_income || 0),
     },
     {
       title: '实际金额',
       dataIndex: 'actual_income',
       key: 'actual_income',
-      render: (amount) => amount ? `¥${amount.toLocaleString()}` : '-',
+      render: (amount) => amount !== undefined && amount !== null ? `${Math.round(amount).toLocaleString()}` : '-',
+      sorter: (a, b) => (a.actual_income || 0) - (b.actual_income || 0),
     },
     {
       title: '达成率',
@@ -211,7 +223,7 @@ const SalesTargetsPage: React.FC = () => {
       key: 'ach_rate',
       width: 200,
       render: (rate) => {
-        if (!rate && rate !== 0) return '-';
+        if (rate === undefined || rate === null) return '-';
         const percent = parseFloat(rate);
         // 根据达成率数值决定颜色
         let strokeColor = '#52c41a'; // 默认绿色 (90%-100%)
@@ -222,31 +234,34 @@ const SalesTargetsPage: React.FC = () => {
         } else if (percent < 90) {
           strokeColor = '#1890ff'; // 良好状态 (70%-90%)
         }
-        
+        const intPercent = Math.round(percent);
         return (
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Progress 
-              percent={percent} 
+              percent={intPercent} 
               size="small" 
               strokeColor={strokeColor}
-              format={(percent) => `${percent}%`}
+              format={() => `${intPercent}%`}
               style={{ marginRight: 8, flex: 1 }}
             />
           </div>
         );
       },
+      sorter: (a, b) => (parseFloat(String(a.ach_rate ?? '0')) - parseFloat(String(b.ach_rate ?? '0'))),
     },
     {
       title: '销售车辆',
       dataIndex: 'sold_car_count',
       key: 'sold_car_count',
-      render: (count) => count || '-',
+      render: (count) => count !== undefined && count !== null ? count : '-',
+      sorter: (a, b) => (a.sold_car_count || 0) - (b.sold_car_count || 0),
     },
     {
       title: '车均收入',
       dataIndex: 'per_car_income',
       key: 'per_car_income',
-      render: (income) => income ? `¥${income.toLocaleString()}` : '-',
+      render: (income) => income !== undefined && income !== null ? `${Math.round(income).toLocaleString()}` : '-',
+      sorter: (a, b) => (a.per_car_income || 0) - (b.per_car_income || 0),
     },
     {
       title: '操作',
@@ -285,14 +300,14 @@ const SalesTargetsPage: React.FC = () => {
   return (
     <Layout>
       <Head>
-        <title>销售目标管理 | 销售助手</title>
-        <meta name="description" content="管理销售目标" />
+        <title>月-目标管理 | 销售助手</title>
+        <meta name="description" content="管理月目标" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
         <div className="py-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-gray-900">销售目标管理</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">月-目标管理</h1>
             <button
               onClick={() => router.push('/sales/targets/new')}
               className="btn btn-primary"
@@ -361,30 +376,44 @@ const SalesTargetsPage: React.FC = () => {
             </div>
           )}
 
-          {/* 销售目标列表 - 使用Ant Design表格 */}
+          {/* 月目标列表 - 使用Ant Design表格 */}
           <div className="mt-6">
             <Table 
               columns={columns}
               dataSource={targets}
               rowKey="id"
               loading={isLoadingData}
-              pagination={{ pageSize: 10 }}
+              pagination={false}
               className="bg-white shadow rounded-md"
               locale={{
                 emptyText: (
                   <div className="p-8 text-center text-gray-500">
-                    <p className="mb-4">暂无销售目标数据</p>
+                    <p className="mb-4">暂无月目标数据</p>
                     <button
                       onClick={() => router.push('/sales/targets/new')}
                       className="btn btn-outline"
                     >
                       <PlusIcon className="h-5 w-5 mr-2" />
-                      添加销售目标
+                      添加月目标
                     </button>
                   </div>
                 )
               }}
             />
+            <div className="flex justify-end mt-4">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={total}
+                showSizeChanger
+                pageSizeOptions={["10", "20", "50", "100"]}
+                onChange={(page, size) => {
+                  setCurrentPage(page);
+                  setPageSize(size);
+                }}
+                showTotal={total => `共 ${total} 条`}
+              />
+            </div>
           </div>
         </div>
       </ConfigProvider>

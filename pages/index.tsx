@@ -1,27 +1,16 @@
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '@/contexts/AuthContext';
+import AppLayout from '@/components/layout/Layout';
+import PageHeader from '@/components/ui/PageHeader';
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.push('/dashboard');
-      } else {
-        router.push('/auth/login');
-      }
-    }
-  }, [isAuthenticated, isLoading, router]);
-
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">销售助手</h1>
-        <p className="text-gray-500">正在加载中，请稍候...</p>
+    <AppLayout>
+      <PageHeader 
+        title="欢迎使用销售助手" 
+        description="这是一个基于Ant Design和Tailwind CSS构建的销售管理系统" 
+      />
+      <div className="mt-8">
+        <p className="text-lg">请从左侧菜单选择功能模块</p>
       </div>
-    </div>
+    </AppLayout>
   );
 } 

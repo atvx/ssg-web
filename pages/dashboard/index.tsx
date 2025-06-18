@@ -23,29 +23,6 @@ const DashboardPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // 获取销售数据
-  useEffect(() => {
-    const fetchData = async () => {
-      if (isAuthenticated) {
-        try {
-          setIsLoadingData(true);
-          const response = await salesAPI.fetchData({ date: today, sync: true });
-          if (response.data.success && response.data.data) {
-            setSalesData(response.data.data as SalesData);
-          } else {
-            setError('获取数据失败');
-          }
-        } catch (err) {
-          setError('获取数据失败，请稍后再试');
-        } finally {
-          setIsLoadingData(false);
-        }
-      }
-    };
-
-    fetchData();
-  }, [isAuthenticated, today]);
-
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
   }
