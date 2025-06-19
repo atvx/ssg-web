@@ -20,7 +20,7 @@ const LoginForm: React.FC = () => {
     try {
       const success = await login(data);
       if (success) {
-        router.push('/dashboard');
+        router.push('/');
       } else {
         setError('用户名或密码错误');
       }
@@ -37,7 +37,7 @@ const LoginForm: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-900">登录</h2>
         <p className="mt-2 text-sm text-gray-600">
           或{' '}
-          <Link href="/auth/register" className="text-blue-600 hover:text-blue-500">
+          <Link href="/register" className="text-blue-600 hover:text-blue-500">
             注册新账号
           </Link>
         </p>

@@ -46,7 +46,7 @@ const SalesTargetsPage: React.FC = () => {
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 

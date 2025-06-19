@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
 import { APIResponse, Login, UserCreate, UserUpdate, PasswordChangeRequest, MonthlySalesTargetCreate, MonthlySalesTargetUpdate, OrgCreate, OrgUpdate } from '@/types/api';
 
@@ -14,7 +14,7 @@ const apiClient = axios.create({
 
 // 请求拦截器，添加token到请求头
 apiClient.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = Cookies.get('token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       Cookies.remove('token');
       if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login';
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

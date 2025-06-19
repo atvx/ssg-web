@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { Table, Pagination, ConfigProvider, Button, Select, Input, Tree, Tag } from 'antd';
-import { HomeOutlined, GlobalOutlined, ShopOutlined } from '@ant-design/icons';
+import { HomeOutlined, EnvironmentOutlined, ShopOutlined, PlusOutlined, ReloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import zhCN from 'antd/locale/zh_CN';
@@ -42,6 +42,7 @@ const OrganizationsPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [title, setTitle] = useState<string>("组织列表");
+  const [isTreeExpanded, setIsTreeExpanded] = useState<boolean>(false);
 
   // 检查用户权限
   const hasAdminPermission = user?.is_superuser === true;
@@ -49,7 +50,7 @@ const OrganizationsPage: React.FC = () => {
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -135,6 +136,23 @@ const OrganizationsPage: React.FC = () => {
     return keys;
   };
 
+  // 折叠所有节点
+  const collapseAllNodes = () => {
+    setExpandedKeys([]);
+  };
+  
+  // 切换树的展开/折叠状态
+  const toggleTreeExpansion = () => {
+    if (isTreeExpanded) {
+      // 当前是展开状态，切换到折叠状态
+      setExpandedKeys([]);
+    } else {
+      // 当前是折叠状态，切换到展开状态
+      setExpandedKeys(getExpandedKeys(treeData));
+    }
+    setIsTreeExpanded(!isTreeExpanded);
+  };
+
   // 筛选组织
   const filterOrganizations = (orgsData: OrgListItem[] = orgs) => {
     let filtered = [...orgsData];
@@ -192,6 +210,19 @@ const OrganizationsPage: React.FC = () => {
     fetchOrgs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
+  
+  // 监听expandedKeys变化，同步isTreeExpanded状态
+  useEffect(() => {
+    // 如果expandedKeys为空，则认为是折叠状态
+    if (expandedKeys.length === 0) {
+      setIsTreeExpanded(false);
+    } 
+    // 如果expandedKeys包含所有节点的key，则认为是完全展开状态
+    else if (treeData.length > 0) {
+      const allKeys = getExpandedKeys(treeData);
+      setIsTreeExpanded(expandedKeys.length >= allKeys.length);
+    }
+  }, [expandedKeys, treeData]);
 
   // 刷新数据
   const handleRefresh = () => {
@@ -231,7 +262,7 @@ const OrganizationsPage: React.FC = () => {
         return { 
           name: '区域', 
           color: 'green',
-          icon: <GlobalOutlined /> 
+          icon: <EnvironmentOutlined /> 
         };
       case 3:
         return { 
@@ -266,24 +297,30 @@ const OrganizationsPage: React.FC = () => {
     {
       title: '序号',
       key: 'index',
-      width: 80,
+      width: 60,
       render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
     },
     {
       title: '机构编码',
       dataIndex: 'org_id',
       key: 'org_id',
-      width: 120,
+      ellipsis: true,
+      width: '15%',
+      sorter: (a, b) => a.org_id.localeCompare(b.org_id),
     },
     {
       title: '机构名称',
       dataIndex: 'org_name',
       key: 'org_name',
+      ellipsis: true,
+      width: '25%',
     },
     {
       title: '机构类型',
       dataIndex: 'org_type',
       key: 'org_type',
+      width: '15%',
+      sorter: (a, b) => (a.org_type || 0) - (b.org_type || 0),
       render: (type) => {
         const typeInfo = getOrgTypeInfo(type);
         return (
@@ -297,6 +334,14 @@ const OrganizationsPage: React.FC = () => {
       title: '上级机构',
       dataIndex: 'parent_id',
       key: 'parent_id',
+      ellipsis: true,
+      width: '20%',
+      sorter: (a, b) => {
+        // 获取上级机构名称
+        const parentA = a.parent_id ? (orgs.find(org => org.org_id === a.parent_id)?.org_name || a.parent_id) : '';
+        const parentB = b.parent_id ? (orgs.find(org => org.org_id === b.parent_id)?.org_name || b.parent_id) : '';
+        return parentA.localeCompare(parentB);
+      },
       render: (parentId) => {
         if (!parentId) return '-';
         const parent = orgs.find(org => org.org_id === parentId);
@@ -311,29 +356,35 @@ const OrganizationsPage: React.FC = () => {
         <div className="flex space-x-2">
           <Button
             type="link"
+            icon={<EyeOutlined />}
             onClick={() => router.push(`/organizations/edit/${record.org_id}`)}
             disabled={!hasAdminPermission}
             title={hasAdminPermission ? '编辑' : '需要管理员权限'}
             className="text-blue-500"
+            size="small"
           >
             查看
           </Button>
           <Button
             type="link"
+            icon={<EditOutlined />}
             onClick={() => router.push(`/organizations/edit/${record.org_id}`)}
             disabled={!hasAdminPermission}
             title={hasAdminPermission ? '编辑' : '需要管理员权限'}
             className="text-blue-500"
+            size="small"
           >
             编辑
           </Button>
           {record.org_type !== 1 && (  // 不允许删除总部
             <Button
               type="link"
+              icon={<DeleteOutlined />}
               onClick={() => handleDelete(record.org_id)}
               disabled={!hasAdminPermission}
               danger
               title={hasAdminPermission ? '删除' : '需要管理员权限'}
+              size="small"
             >
               删除
             </Button>
@@ -356,36 +407,71 @@ const OrganizationsPage: React.FC = () => {
       <Head>
         <title>组织管理 | 销售助手</title>
         <meta name="description" content="组织管理" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-4">
+        <div className="py-4 px-2 md:px-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">组织管理</h1>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => router.push('/organizations/new')}
+                disabled={!hasAdminPermission}
+                title={hasAdminPermission ? '创建组织' : '需要管理员权限'}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                新增组织
+              </Button>
+              <Button
+                icon={<ReloadOutlined spin={isRefreshing} />}
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                刷新
+              </Button>
+            </div>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            管理组织结构和层级关系。
+          </p>
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+              {error}
+            </div>
+          )}
+
           {/* 搜索区 */}
-          <div className="bg-white p-4 rounded-md shadow mb-4">
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
+          <div className="bg-white p-3 sm:p-4 rounded-md shadow mb-4 mt-6">
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-3 sm:gap-4">
+              <div className="w-full sm:w-auto">
                 <label className="block text-sm font-medium text-gray-700 mb-1">机构名称:</label>
                 <Input
                   placeholder="请输入机构名称"
                   value={orgNameFilter}
                   onChange={e => setOrgNameFilter(e.target.value)}
-                  style={{ width: '220px' }}
+                  style={{ width: '100%', maxWidth: '220px' }}
                 />
               </div>
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-sm font-medium text-gray-700 mb-1">机构编码:</label>
                 <Input
                   placeholder="请输入机构编码"
                   value={orgCodeFilter}
                   onChange={e => setOrgCodeFilter(e.target.value)}
-                  style={{ width: '220px' }}
+                  style={{ width: '100%', maxWidth: '220px' }}
                 />
               </div>
-              <div>
+              <div className="w-full sm:w-auto">
                 <label className="block text-sm font-medium text-gray-700 mb-1">机构类型:</label>
                 <Select
                   placeholder="全部"
-                  style={{ width: '120px' }}
+                  style={{ width: '100%', maxWidth: '120px' }}
                   value={selectedOrgType || undefined}
                   onChange={value => setSelectedOrgType(value)}
                   allowClear
@@ -395,30 +481,42 @@ const OrganizationsPage: React.FC = () => {
                   <Option value="3">仓库</Option>
                 </Select>
               </div>
-              <Button
-                type="primary"
-                onClick={() => filterOrganizations()}
-                style={{ marginRight: '8px' }}
-              >
-                查询
-              </Button>
-              <Button
-                onClick={() => {
-                  setOrgNameFilter('');
-                  setOrgCodeFilter('');
-                  setSelectedOrgType('');
-                  setSelectedKeys([]);
-                  filterOrganizations(orgs);
-                }}
-              >
-                重置
-              </Button>
+              <div className="flex gap-2 mt-2 sm:mt-0">
+                <Button
+                  type="primary"
+                  onClick={() => filterOrganizations()}
+                >
+                  查询
+                </Button>
+                <Button
+                  onClick={() => {
+                    setOrgNameFilter('');
+                    setOrgCodeFilter('');
+                    setSelectedOrgType('');
+                    setSelectedKeys([]);
+                    filterOrganizations(orgs);
+                  }}
+                >
+                  重置
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-4">
-            {/* 左侧树形菜单 */}
-            <div className="w-64 bg-white p-4 rounded-md shadow">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* 左侧树形菜单 - 在移动端上方显示，在大屏上左侧显示 */}
+            <div className="w-full lg:w-64 bg-white p-4 rounded-md shadow">
+              <div className="text-base font-medium mb-2 flex justify-between items-center">
+                <span>组织结构</span>
+                <Button 
+                  type="link" 
+                  onClick={toggleTreeExpansion}
+                  className="p-0 h-auto text-xs"
+                  size="small"
+                >
+                  {isTreeExpanded ? '折叠全部' : '展开全部'}
+                </Button>
+              </div>
               <Tree
                 showLine
                 treeData={treeData}
@@ -430,60 +528,38 @@ const OrganizationsPage: React.FC = () => {
             </div>
 
             {/* 右侧内容区 */}
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-4 bg-white p-4 rounded-md shadow">
-                <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
-                <div className="flex space-x-2">
-                  <Button
-                    type="primary"
-                    icon={<PlusIcon className="h-5 w-5 mr-1" />}
-                    onClick={() => router.push('/organizations/new')}
-                    disabled={!hasAdminPermission}
-                    title={hasAdminPermission ? '创建组织' : '需要管理员权限'}
-                  >
-                    新增组织
-                  </Button>
-                  <Button
-                    icon={<ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="ml-2"
-                  >
-                    刷新
-                  </Button>
-                </div>
-              </div>
-
-              {/* 错误提示 */}
-              {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                  {error}
-                </div>
-              )}
-
+            <div className="flex-1 overflow-hidden">
               {/* 数据表格 */}
               <div className="bg-white shadow rounded-lg overflow-hidden">
-                <Table
-                  columns={columns}
-                  dataSource={getPaginatedData()}
-                  rowKey="org_id"
-                  pagination={false}
-                  loading={isLoadingData}
-                  scroll={{ x: 'max-content' }}
-                />
-                <div className="p-4 border-t border-gray-200">
-                  <Pagination
-                    current={currentPage}
-                    pageSize={pageSize}
-                    total={total}
-                    onChange={setCurrentPage}
-                    onShowSizeChange={(current, size) => {
-                      setPageSize(size);
-                      setCurrentPage(1);
-                    }}
-                    showSizeChanger
-                    showTotal={(total) => `共 ${total} 条记录`}
+                <div className="overflow-x-auto">
+                  <Table
+                    columns={columns}
+                    dataSource={getPaginatedData()}
+                    rowKey="org_id"
+                    pagination={false}
+                    loading={isLoadingData}
+                    scroll={{ x: 'max-content' }}
+                    size="small"
+                    tableLayout="auto"
+                    bordered
                   />
+                </div>
+                <div className="p-2 sm:p-4 border-t border-gray-200">
+                  <div className="flex justify-end">
+                    <Pagination
+                      current={currentPage}
+                      pageSize={pageSize}
+                      total={total}
+                      onChange={setCurrentPage}
+                      onShowSizeChange={(current, size) => {
+                        setPageSize(size);
+                        setCurrentPage(1);
+                      }}
+                      showSizeChanger
+                      pageSizeOptions={["10", "20", "50", "100"]}
+                      showTotal={(total) => `共 ${total} 条记录`}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

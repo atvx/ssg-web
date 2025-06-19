@@ -7,15 +7,17 @@ import {
   FileTextOutlined, 
   ClockCircleOutlined, 
   UserOutlined, 
-  BankOutlined,
+  ApartmentOutlined,
   MenuOutlined,
   CloseOutlined,
   LogoutOutlined,
-  AimOutlined
+  AimOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
-import { Layout as AntLayout, Menu, Button, Drawer } from 'antd';
+import { Layout as AntLayout, Menu, Button, Drawer, Dropdown, Avatar, Space, MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
 import clsx from 'clsx';
+import ClientOnly from '@/components/ui/ClientOnly';
 
 const { Header, Sider, Content } = AntLayout;
 
@@ -31,13 +33,12 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: '仪表板', href: '/dashboard', icon: <HomeOutlined /> },
+  { name: '仪表板', href: '/', icon: <HomeOutlined /> },
   { name: '销售数据', href: '/sales/data', icon: <BarChartOutlined /> },
   { name: '目标管理', href: '/sales/targets', icon: <AimOutlined /> },
   { name: '报表中心', href: '/sales/reports', icon: <FileTextOutlined /> },
   { name: '任务中心', href: '/tasks', icon: <ClockCircleOutlined /> },
-  { name: '个人设置', href: '/settings', icon: <UserOutlined /> },
-  { name: '组织管理', href: '/organizations', icon: <BankOutlined />, requiresAdmin: true },
+  { name: '组织管理', href: '/organizations', icon: <ApartmentOutlined />, requiresAdmin: true },
 ];
 
 const AppLayout: React.FC<LayoutProps> = ({ children }) => {
@@ -62,28 +63,55 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
       .map(item => item.href);
   };
 
+  // 获取用户名首字母（大写）
+  const getUserInitial = () => {
+    if (!user?.username) return '';
+    return user.username.charAt(0).toUpperCase();
+  };
+
+  // 用户下拉菜单项
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: <Link href="/settings">个人中心</Link>,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: <a onClick={logout}>退出登录</a>,
+      danger: true,
+    },
+  ];
+
   return (
     <AntLayout className="min-h-screen">
       {/* 移动端侧边栏抽屉 */}
-      <Drawer
-        placement="left"
-        closable={false}
-        onClose={() => setSidebarOpen(false)}
-        open={sidebarOpen}
-        width={250}
-        styles={{ body: { padding: 0 } }}
-        className="md:hidden"
-      >
+      <ClientOnly>
+        <Drawer
+          placement="left"
+          closable={false}
+          onClose={() => setSidebarOpen(false)}
+          open={sidebarOpen}
+          width={250}
+          styles={{ body: { padding: 0 } }}
+          className="md:hidden"
+        >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center h-16 px-4 bg-white border-b">
             <span className="text-xl font-bold text-gray-900">销售助手</span>
-            <Button 
-              type="text" 
-              icon={<CloseOutlined />} 
-              onClick={() => setSidebarOpen(false)}
-              className="ml-auto"
-            />
+            <ClientOnly>
+              <Button 
+                type="text" 
+                icon={<CloseOutlined />} 
+                onClick={() => setSidebarOpen(false)}
+                className="ml-auto"
+              />
+            </ClientOnly>
           </div>
 
           {/* 导航菜单 */}
@@ -99,6 +127,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
           />
         </div>
       </Drawer>
+      </ClientOnly>
 
       {/* 桌面端侧边栏 */}
       <Sider
@@ -136,26 +165,30 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
       <AntLayout className="md:ml-[200px]">
         {/* 顶部导航栏 */}
         <Header className="bg-white p-0 shadow-sm flex items-center justify-between">
-          <Button
-            type="text"
-            icon={<MenuOutlined />}
-            onClick={() => setSidebarOpen(true)}
-            className="ml-4 md:hidden"
-          />
-
-          <div className="flex items-center ml-auto mr-4">
-            {/* 用户信息 */}
-            <span className="mr-3 text-sm">
-              {user?.username || ''}
-            </span>
+          <ClientOnly>
             <Button
               type="text"
-              icon={<LogoutOutlined />}
-              onClick={logout}
-              className="flex items-center text-gray-700"
-            >
-              退出
-            </Button>
+              icon={<MenuOutlined />}
+              onClick={() => setSidebarOpen(true)}
+              className="ml-4 md:hidden"
+            />
+          </ClientOnly>
+
+          <div className="flex items-center ml-auto mr-4">
+            <ClientOnly>
+              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
+                <Avatar 
+                  style={{
+                    backgroundColor: '#1677ff',
+                    verticalAlign: 'middle',
+                    cursor: 'pointer'
+                  }}
+                  size="default"
+                >
+                  {getUserInitial()}
+                </Avatar>
+              </Dropdown>
+            </ClientOnly>
           </div>
         </Header>
 

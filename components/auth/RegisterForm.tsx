@@ -27,7 +27,7 @@ const RegisterForm: React.FC = () => {
       const success = await registerUser(registerData);
       
       if (success) {
-        router.push('/auth/login?registered=true');
+        router.push('/login?registered=true');
       } else {
         setError('注册失败，请稍后再试');
       }
@@ -44,7 +44,7 @@ const RegisterForm: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-900">注册新账号</h2>
         <p className="mt-2 text-sm text-gray-600">
           或{' '}
-          <Link href="/auth/login" className="text-primary-600 hover:text-primary-500">
+          <Link href="/login" className="text-primary-600 hover:text-primary-500">
             登录已有账号
           </Link>
         </p>

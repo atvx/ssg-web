@@ -18,7 +18,7 @@ const TasksPage: React.FC = () => {
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
+      router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -118,9 +118,10 @@ const TasksPage: React.FC = () => {
           <h1 className="text-2xl font-semibold text-gray-900">任务中心</h1>
           <button
             onClick={fetchTasks}
-            className="btn btn-outline"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
             disabled={isLoadingTasks}
           >
+            <ClockIcon className={`h-5 w-5 mr-1 ${isLoadingTasks ? 'animate-spin' : ''}`} />
             {isLoadingTasks ? '刷新中...' : '刷新'}
           </button>
         </div>
