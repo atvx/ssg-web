@@ -10,7 +10,10 @@ import { Task } from '@/types/api';
 import PageHeader from '@/components/ui/PageHeader';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Spin } from 'antd';
+import { Spin, Modal, message } from 'antd';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
+
+const { confirm } = Modal;
 
 const TasksPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -55,21 +58,28 @@ const TasksPage: React.FC = () => {
 
   // 删除任务
   const handleDeleteTask = async (taskId: number) => {
-    if (!window.confirm('确定要删除此任务吗？')) {
-      return;
-    }
-
-    try {
-      const response = await tasksAPI.deleteTask(taskId);
-      if (response.data.success) {
-        // 从列表中移除已删除的任务
-        setTasks(tasks.filter(task => task.id !== taskId));
-      } else {
-        setError('删除任务失败');
+    confirm({
+      title: '确认删除',
+      icon: <ExclamationCircleOutlined />,
+      content: '确定要删除此任务吗？删除后不可恢复。',
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      async onOk() {
+        try {
+          const response = await tasksAPI.deleteTask(taskId);
+          if (response.data.success) {
+            // 从列表中移除已删除的任务
+            setTasks(tasks.filter(task => task.id !== taskId));
+            message.success('任务删除成功');
+          } else {
+            message.error(response.data.message || '删除任务失败');
+          }
+        } catch (err) {
+          message.error('删除任务失败，请稍后再试');
+        }
       }
-    } catch (err) {
-      setError('删除任务失败，请稍后再试');
-    }
+    });
   };
 
   // 获取任务状态图标

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert, TreeSelect } from 'antd';
+import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert, TreeSelect, message, Spin } from 'antd';
 import { HomeOutlined, EnvironmentOutlined, ShopOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,8 +154,6 @@ const NewOrganizationPage: React.FC = () => {
         // 获取并设置显示用的中文名
         const typeName = getOrgTypeName(newOrgType);
         setOrgTypeName(typeName);
-        
-        console.log(`设置机构类型: ${newOrgType}, 显示名称: ${typeName}`);
       }
     } else {
       // 如果清除上级机构选择，也清除机构类型
@@ -170,6 +168,7 @@ const NewOrganizationPage: React.FC = () => {
     if (!hasAdminPermission) {
       setPermissionError(true);
       setError('权限不足，需要管理员权限');
+      message.error('权限不足，需要管理员权限');
       return;
     }
 
@@ -186,12 +185,16 @@ const NewOrganizationPage: React.FC = () => {
       });
       
       if (response.data.success) {
+        // 显示成功消息
+        message.success('机构创建成功！');
         // 创建成功，返回列表页
         router.push('/organizations');
       } else {
+        message.error(response.data.message || '创建机构失败');
         setError(response.data.message || '创建机构失败');
       }
     } catch (err) {
+      message.error('创建机构失败，请稍后再试');
       setError('创建机构失败，请稍后再试');
     } finally {
       setIsSubmitting(false);
@@ -199,7 +202,7 @@ const NewOrganizationPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {

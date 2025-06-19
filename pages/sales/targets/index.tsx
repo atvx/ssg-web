@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin } from 'antd';
+import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin, Modal, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { MonthlySalesTarget, OrgListItem } from '@/types/api';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -42,6 +43,8 @@ const SalesTargetsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+
+  const { confirm } = Modal;
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -160,21 +163,28 @@ const SalesTargetsPage: React.FC = () => {
 
   // 删除月目标
   const handleDelete = async (targetId: number) => {
-    if (!window.confirm('确定要删除此月目标吗？')) {
-      return;
-    }
-
-    try {
-      const response = await salesAPI.deleteSalesTarget(targetId);
-      if (response.data.success) {
-        // 从列表中移除已删除的目标
-        setTargets(targets.filter(target => target.id !== targetId));
-      } else {
-        setError('删除月目标失败');
+    confirm({
+      title: '确认删除',
+      icon: <ExclamationCircleOutlined />,
+      content: '确定要删除此月目标吗？删除后不可恢复。',
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      async onOk() {
+        try {
+          const response = await salesAPI.deleteSalesTarget(targetId);
+          if (response.data.success) {
+            // 从列表中移除已删除的目标
+            setTargets(targets.filter(target => target.id !== targetId));
+            message.success('月目标删除成功');
+          } else {
+            message.error(response.data.message || '删除月目标失败');
+          }
+        } catch (err) {
+          message.error('删除月目标失败，请稍后再试');
+        }
       }
-    } catch (err) {
-      setError('删除月目标失败，请稍后再试');
-    }
+    });
   };
 
   // 按父子关系对机构列表进行分组

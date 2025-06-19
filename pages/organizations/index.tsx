@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Table, Pagination, ConfigProvider, Button, Select, Input, Tree, Tag, Spin } from 'antd';
-import { HomeOutlined, EnvironmentOutlined, ShopOutlined, PlusOutlined, ReloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Pagination, ConfigProvider, Button, Select, Input, Tree, Tag, Spin, Modal, message } from 'antd';
+import { HomeOutlined, EnvironmentOutlined, ShopOutlined, PlusOutlined, ReloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
 import zhCN from 'antd/locale/zh_CN';
@@ -14,6 +14,7 @@ import { OrgListItem } from '@/types/api';
 
 const { Option } = Select;
 const { Search } = Input;
+const { confirm } = Modal;
 
 // 定义组织树节点类型
 interface OrgTreeNode {
@@ -232,21 +233,33 @@ const OrganizationsPage: React.FC = () => {
 
   // 删除组织
   const handleDelete = async (orgId: string) => {
-    if (!window.confirm('确定要删除此组织吗？')) {
-      return;
-    }
-
-    try {
-      const response = await orgsAPI.deleteOrg(orgId);
-      if (response.data.success) {
-        // 重新获取数据，更新树结构
-        fetchOrgs();
-      } else {
-        setError('删除组织失败');
-      }
-    } catch (err) {
-      setError('删除组织失败，请稍后再试');
-    }
+    confirm({
+      title: '确认删除',
+      icon: <ExclamationCircleOutlined />,
+      content: '确定要删除此机构吗？删除后不可恢复。',
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      async onOk() {
+        try {
+          const response = await orgsAPI.deleteOrg(orgId);
+          if (response.data.success) {
+            // 提示成功信息
+            message.success('机构删除成功');
+            // 重新获取数据，更新树结构
+            fetchOrgs();
+          } else {
+            // 提示错误信息
+            message.error(response.data.message || '删除机构失败');
+          }
+        } catch (err) {
+          message.error('删除机构失败，请稍后再试');
+        }
+      },
+      onCancel() {
+        // 用户取消删除操作
+      },
+    });
   };
 
   // 获取组织类型名称、标签颜色和图标
