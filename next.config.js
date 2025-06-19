@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  // 优化字体加载
+  optimizeFonts: true,
   compiler: {
     // 启用样式优化
     styledComponents: true,
@@ -9,8 +11,7 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   experimental: {
-    // 优化字体加载
-    optimizeFonts: true,
+    // 实验性功能，如果有的话
   },
   // 图片优化配置
   images: {
