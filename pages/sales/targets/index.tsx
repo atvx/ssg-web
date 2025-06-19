@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination } from 'antd';
+import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -68,9 +68,45 @@ const SalesTargetsPage: React.FC = () => {
     fetchOrgs();
   }, [isAuthenticated]);
 
-  // 获取月目标列表
-  const fetchTargets = async () => {
-    if (isAuthenticated) {
+  // 刷新数据
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
+  };
+
+  // 安全的数据加载函数
+  const loadData = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setIsLoadingData(true);
+      const params: any = { year, month, skip: (currentPage - 1) * pageSize, limit: pageSize };
+      if (selectedOrgId) {
+        params.org_id = selectedOrgId;
+      }
+      const response = await salesAPI.getSalesTargets(params);
+
+      if (response.data.success && response.data.data) {
+        setTargets(response.data.data.items || response.data.data);
+        setTotal(response.data.data.total || (response.data.data.length || 0));
+        setError(null);
+      } else {
+        setError('获取月目标失败');
+      }
+    } catch (err) {
+      setError('获取月目标失败，请稍后再试');
+    } finally {
+      setIsLoadingData(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // 监听筛选条件和分页变化，重新获取数据
+  useEffect(() => {
+    let isMounted = true;
+
+    const effectLoadData = async () => {
+      if (!isMounted) return;
       try {
         setIsLoadingData(true);
         const params: any = { year, month, skip: (currentPage - 1) * pageSize, limit: pageSize };
@@ -78,34 +114,34 @@ const SalesTargetsPage: React.FC = () => {
           params.org_id = selectedOrgId;
         }
         const response = await salesAPI.getSalesTargets(params);
+        if (!isMounted) return; // 再次检查是否已卸载
+
         if (response.data.success && response.data.data) {
-          // 假设后端返回 { items: [], total: 100 }
-          setTargets(response.data.data.items || response.data.data); // 兼容老数据结构
+          setTargets(response.data.data.items || response.data.data);
           setTotal(response.data.data.total || (response.data.data.length || 0));
           setError(null);
         } else {
           setError('获取月目标失败');
         }
       } catch (err) {
+        if (!isMounted) return;
         setError('获取月目标失败，请稍后再试');
       } finally {
-        setIsLoadingData(false);
-        setIsRefreshing(false);
+        if (isMounted) {
+          setIsLoadingData(false);
+          setIsRefreshing(false);
+        }
       }
-    }
-  };
+    };
 
-  // 监听筛选条件和分页变化，重新获取数据
-  useEffect(() => {
-    fetchTargets();
+    effectLoadData();
+
+    // 返回清理函数
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, year, month, selectedOrgId, currentPage, pageSize]);
-
-  // 刷新数据
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchTargets();
-  };
 
   // 获取机构名称
   const getOrgName = (orgId: string) => {
@@ -290,7 +326,7 @@ const SalesTargetsPage: React.FC = () => {
   const orgGroups = groupOrgsByParent();
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {

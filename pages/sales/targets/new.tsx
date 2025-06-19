@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber, Alert } from 'antd';
+import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber, Alert, Spin } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -139,7 +139,7 @@ const NewTargetPage: React.FC = () => {
   const orgGroups = groupOrgsByParent();
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {

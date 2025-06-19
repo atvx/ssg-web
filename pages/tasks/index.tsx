@@ -7,6 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { tasksAPI } from '@/lib/api';
 import { Task } from '@/types/api';
+import PageHeader from '@/components/ui/PageHeader';
+import Card from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import { Spin } from 'antd';
 
 const TasksPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -99,7 +103,7 @@ const TasksPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {
@@ -139,7 +143,7 @@ const TasksPage: React.FC = () => {
         {/* 任务列表 */}
         <div className="mt-6 bg-white shadow overflow-hidden rounded-md">
           {isLoadingTasks ? (
-            <div className="p-4 text-center">加载中...</div>
+            <div className="p-4 text-center"><Spin /></div>
           ) : tasks.length > 0 ? (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">

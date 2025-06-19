@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,19 +12,37 @@ const LoginPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const { registered } = router.query;
+  const [redirecting, setRedirecting] = useState(false);
 
   // 如果用户已登录，重定向到仪表板
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      router.push('/');
-    }
-  }, [isAuthenticated, isLoading, router]);
+    let isMounted = true;
+
+    const handleRedirect = async () => {
+      if (isAuthenticated && !isLoading && !redirecting) {
+        setRedirecting(true);
+        // 使用setTimeout让状态有时间更新，避免立即卸载组件
+        setTimeout(() => {
+          if (isMounted) {
+            router.push('/');
+          }
+        }, 0);
+      }
+    };
+
+    handleRedirect();
+
+    // 清理函数，防止组件卸载后更新状态
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, isLoading, router, redirecting]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-        <span className="ml-2 text-gray-600">加载中...</span>
+        <span className="ml-2 text-gray-600"><Spin size="small" /></span>
       </div>
     );
   }

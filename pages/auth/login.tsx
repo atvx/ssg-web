@@ -24,7 +24,7 @@ const LoginPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-        <span className="ml-2 text-gray-600">加载中...</span>
+        <span className="ml-2 text-gray-600"><Spin size="small" /></span>
       </div>
     );
   }

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
-import { CalendarIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import SalesDataTable from '@/components/sales/SalesDataTable';
 import { salesAPI } from '@/lib/api';
 import { SalesData } from '@/types/api';
+import { Spin } from 'antd';
 
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,7 +51,7 @@ const SalesDataPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {
@@ -73,7 +74,7 @@ const SalesDataPage: React.FC = () => {
             disabled={isLoadingData}
           >
             <ArrowPathIcon className={`h-5 w-5 mr-1 ${isLoadingData ? 'animate-spin' : ''}`} />
-            {isLoadingData ? '加载中...' : '数据同步'}
+            {isLoadingData ? <Spin size="small" /> : '数据同步'}
           </button>
         </div>
         <p className="mt-1 text-sm text-gray-500">
@@ -117,8 +118,8 @@ const SalesDataPage: React.FC = () => {
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
                 disabled={isLoadingData}
               >
-                <ArrowPathIcon className="h-5 w-5 mr-1" />
-                {isLoadingData ? '加载中...' : '查询'}
+                <MagnifyingGlassIcon className="h-5 w-5 mr-1" />
+                {isLoadingData ? <Spin size="small" /> : '查询'}
               </button>
             </div>
           </div>
@@ -139,8 +140,8 @@ const SalesDataPage: React.FC = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">总销售额</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {isLoadingData ? '加载中...' : salesData ? `¥${salesData.amount.toLocaleString()}` : '暂无数据'}
+                    <div className="text-3xl font-bold text-gray-800">
+                      {isLoadingData ? <Spin /> : salesData ? `¥${salesData.amount.toLocaleString()}` : '暂无数据'}
                     </div>
                   </dd>
                 </dl>
@@ -153,8 +154,8 @@ const SalesDataPage: React.FC = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">总订单数</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {isLoadingData ? '加载中...' : salesData ? salesData.count : '暂无数据'}
+                    <div className="text-3xl font-bold text-gray-800">
+                      {isLoadingData ? <Spin /> : salesData ? salesData.count : '暂无数据'}
                     </div>
                   </dd>
                 </dl>

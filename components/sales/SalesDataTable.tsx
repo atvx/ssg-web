@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { SalesData } from '@/types/api';
+import { Spin } from 'antd';
 
 interface SalesDataTableProps {
   data: SalesData | null;
@@ -11,7 +12,7 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({ data, isLoading }) => {
   if (isLoading) {
     return (
       <div className="text-center py-4">
-        <p className="text-gray-500">加载中...</p>
+        <Spin size="small" />
       </div>
     );
   }

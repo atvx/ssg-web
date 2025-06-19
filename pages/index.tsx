@@ -7,11 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { salesAPI } from '@/lib/api';
 import { SalesData } from '@/types/api';
 import dynamic from 'next/dynamic';
+import { Spin } from 'antd';
 
 // 动态导入布局组件以提升性能
 const Layout = dynamic(() => import('@/components/layout/Layout'), {
   ssr: true,
-  loading: () => <div className="h-screen flex items-center justify-center">加载中...</div>,
+  loading: () => <div className="h-screen flex items-center justify-center"><Spin size="large" /></div>,
 });
 
 const HomePage: React.FC = () => {
@@ -30,7 +31,7 @@ const HomePage: React.FC = () => {
   }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {
@@ -71,8 +72,8 @@ const HomePage: React.FC = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">今日销售额</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {isLoadingData ? '加载中...' : salesData ? `¥${salesData.amount.toLocaleString()}` : '暂无数据'}
+                    <div className="text-3xl font-bold text-gray-800">
+                      {isLoadingData ? <Spin /> : salesData ? `¥${salesData.amount.toLocaleString()}` : '暂无数据'}
                     </div>
                   </dd>
                 </dl>
@@ -90,8 +91,8 @@ const HomePage: React.FC = () => {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">今日订单数</dt>
                   <dd>
-                    <div className="text-lg font-medium text-gray-900">
-                      {isLoadingData ? '加载中...' : salesData ? salesData.count : '暂无数据'}
+                    <div className="text-3xl font-bold text-gray-800">
+                      {isLoadingData ? <Spin /> : salesData ? salesData.count : '暂无数据'}
                     </div>
                   </dd>
                 </dl>

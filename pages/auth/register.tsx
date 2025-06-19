@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import RegisterForm from '@/components/auth/RegisterForm';
+import { Spin } from 'antd';
 
 const RegisterPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -16,7 +17,7 @@ const RegisterPage: React.FC = () => {
   }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   return (
