@@ -38,7 +38,7 @@ const navigation: NavItem[] = [
   { name: '目标管理', href: '/sales/targets', icon: <AimOutlined /> },
   { name: '报表中心', href: '/sales/reports', icon: <FileTextOutlined /> },
   { name: '任务中心', href: '/tasks', icon: <ClockCircleOutlined /> },
-  { name: '组织管理', href: '/organizations', icon: <ApartmentOutlined />, requiresAdmin: true },
+  { name: '机构管理', href: '/organizations', icon: <ApartmentOutlined />, requiresAdmin: true },
 ];
 
 const AppLayout: React.FC<LayoutProps> = ({ children }) => {
@@ -179,7 +179,8 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
               <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
                 <Avatar 
                   style={{
-                    backgroundColor: '#1677ff',
+                    backgroundColor: '#fde3cf',
+                    color: '#f56a00',
                     verticalAlign: 'middle',
                     cursor: 'pointer'
                   }}

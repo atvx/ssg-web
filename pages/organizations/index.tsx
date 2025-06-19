@@ -405,15 +405,15 @@ const OrganizationsPage: React.FC = () => {
   return (
     <Layout>
       <Head>
-        <title>组织管理 | 销售助手</title>
-        <meta name="description" content="组织管理" />
+        <title>机构管理 | 销售助手</title>
+        <meta name="description" content="机构管理" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
         <div className="py-4 px-2 md:px-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">组织管理</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">机构管理</h1>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="primary"
@@ -423,7 +423,7 @@ const OrganizationsPage: React.FC = () => {
                 title={hasAdminPermission ? '创建组织' : '需要管理员权限'}
                 style={{ display: 'flex', alignItems: 'center' }}
               >
-                新增组织
+                新增机构
               </Button>
               <Button
                 icon={<ReloadOutlined spin={isRefreshing} />}

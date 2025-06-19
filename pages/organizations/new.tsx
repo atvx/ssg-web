@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert } from 'antd';
+import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert, TreeSelect } from 'antd';
+import { HomeOutlined, EnvironmentOutlined, ShopOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
@@ -11,12 +12,26 @@ import { OrgListItem } from '@/types/api';
 
 const { Option } = Select;
 
+// 定义组织树节点类型
+interface OrgTreeNode {
+  title: string;
+  value: string;
+  key: string;
+  icon?: React.ReactNode;
+  children?: OrgTreeNode[];
+  selectable?: boolean;
+  org_type?: number; // 添加机构类型信息
+}
+
 const NewOrganizationPage: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   
   const [form] = Form.useForm();
   const [orgs, setOrgs] = useState<OrgListItem[]>([]);
+  const [treeData, setTreeData] = useState<OrgTreeNode[]>([]);
+  const [selectedParentId, setSelectedParentId] = useState<string | undefined>();
+  const [orgTypeName, setOrgTypeName] = useState<string>(''); // 用于显示的机构类型名称
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +47,62 @@ const NewOrganizationPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // 获取组织列表（用于选择父组织）
+  // 构建组织树结构数据
+  const buildTreeData = (orgsData: OrgListItem[]) => {
+    // 只查找类型为1(总部)和2(市场)的机构
+    const validOrgs = orgsData.filter(org => org.org_type === 1 || org.org_type === 2);
+    
+    const buildChildren = (parentId: string): OrgTreeNode[] => {
+      // 找到直接子节点
+      const children = validOrgs
+        .filter(org => org.parent_id === parentId)
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        .map(org => {
+          const hasChildren = validOrgs.some(child => child.parent_id === org.org_id);
+          
+          // 获取图标
+          let icon;
+          switch (org.org_type) {
+            case 1:
+              icon = <HomeOutlined />;
+              break;
+            case 2:
+              icon = <EnvironmentOutlined />;
+              break;
+            default:
+              icon = null;
+          }
+          
+          return {
+            title: org.org_name || org.org_id,
+            value: org.org_id,
+            key: org.org_id,
+            icon,
+            selectable: true,
+            org_type: org.org_type,
+            children: hasChildren ? buildChildren(org.org_id) : undefined,
+          };
+        });
+      
+      return children;
+    };
+    
+    // 从总部开始构建树
+    const headquarters = validOrgs.filter(org => org.org_type === 1);
+    return headquarters
+      .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+      .map(hq => ({
+        title: hq.org_name || hq.org_id,
+        value: hq.org_id,
+        key: hq.org_id,
+        icon: <HomeOutlined />,
+        selectable: true,
+        org_type: hq.org_type,
+        children: buildChildren(hq.org_id)
+      }));
+  };
+
+  // 获取组织列表
   useEffect(() => {
     const fetchOrgs = async () => {
       if (isAuthenticated) {
@@ -40,10 +110,13 @@ const NewOrganizationPage: React.FC = () => {
           setIsLoadingData(true);
           const response = await orgsAPI.getOrgs();
           if (response.data.success && response.data.data) {
-            setOrgs(response.data.data as OrgListItem[]);
+            const orgsData = response.data.data as OrgListItem[];
+            setOrgs(orgsData);
+            // 构建树形结构
+            setTreeData(buildTreeData(orgsData));
           }
         } catch (err) {
-          setError('获取组织列表失败');
+          setError('获取机构列表失败');
         } finally {
           setIsLoadingData(false);
         }
@@ -52,6 +125,44 @@ const NewOrganizationPage: React.FC = () => {
 
     fetchOrgs();
   }, [isAuthenticated]);
+
+  // 获取机构类型名称
+  const getOrgTypeName = (type?: number) => {
+    switch (type) {
+      case 1: return '总部';
+      case 2: return '市场';
+      case 3: return '仓库';
+      default: return '';
+    }
+  };
+
+  // 处理上级机构选择变更
+  const handleParentChange = (value: string) => {
+    setSelectedParentId(value);
+    
+    if (value) {
+      // 查找所选机构的类型
+      const selectedParent = orgs.find(org => org.org_id === value);
+      if (selectedParent) {
+        // 如果上级是总部(类型1)，则新机构是市场(类型2)
+        // 如果上级是市场(类型2)，则新机构是仓库(类型3)
+        const newOrgType = selectedParent.org_type === 1 ? 2 : 3;
+        
+        // 设置表单中的数字值
+        form.setFieldValue('org_type', newOrgType);
+        
+        // 获取并设置显示用的中文名
+        const typeName = getOrgTypeName(newOrgType);
+        setOrgTypeName(typeName);
+        
+        console.log(`设置机构类型: ${newOrgType}, 显示名称: ${typeName}`);
+      }
+    } else {
+      // 如果清除上级机构选择，也清除机构类型
+      form.setFieldValue('org_type', undefined);
+      setOrgTypeName('');
+    }
+  };
 
   // 提交表单
   const handleSubmit = async (values: any) => {
@@ -78,33 +189,13 @@ const NewOrganizationPage: React.FC = () => {
         // 创建成功，返回列表页
         router.push('/organizations');
       } else {
-        setError(response.data.message || '创建组织失败');
+        setError(response.data.message || '创建机构失败');
       }
     } catch (err) {
-      setError('创建组织失败，请稍后再试');
+      setError('创建机构失败，请稍后再试');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // 根据选择的组织类型，过滤可选的父组织
-  const getParentOptions = (selectedType?: number) => {
-    if (!selectedType) return [];
-    
-    // 如果选择的是总部(1)，则没有父组织选项
-    if (selectedType === 1) return [];
-    
-    // 如果选择的是市场(2)，则父组织只能是总部(1)
-    if (selectedType === 2) {
-      return orgs.filter(org => org.org_type === 1);
-    }
-    
-    // 如果选择的是仓库(3)，则父组织只能是市场(2)
-    if (selectedType === 3) {
-      return orgs.filter(org => org.org_type === 2);
-    }
-    
-    return [];
   };
 
   if (isLoading) {
@@ -118,14 +209,14 @@ const NewOrganizationPage: React.FC = () => {
   return (
     <Layout>
       <Head>
-        <title>新增组织 | 销售助手</title>
-        <meta name="description" content="新增组织" />
+        <title>新增机构 | 销售助手</title>
+        <meta name="description" content="新增机构" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
         <div className="py-6">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">新增组织</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">新增机构</h1>
             <Button 
               icon={<ArrowLeftIcon className="h-5 w-5 mr-1" />} 
               onClick={() => router.push('/organizations')}
@@ -139,7 +230,7 @@ const NewOrganizationPage: React.FC = () => {
           {!hasAdminPermission && (
             <Alert
               message="权限提示"
-              description="创建组织需要管理员权限，请联系系统管理员获取权限。"
+              description="创建机构需要管理员权限，请联系系统管理员获取权限。"
               type="warning"
               showIcon
               className="mb-6"
@@ -166,71 +257,73 @@ const NewOrganizationPage: React.FC = () => {
               }}
             >
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* 组织ID */}
-                <Form.Item
-                  name="org_id"
-                  label="组织ID"
-                  rules={[{ required: true, message: '请输入组织ID' }]}
-                >
-                  <Input placeholder="请输入组织ID" />
-                </Form.Item>
-
-                {/* 组织名称 */}
-                <Form.Item
-                  name="org_name"
-                  label="组织名称"
-                  rules={[{ required: true, message: '请输入组织名称' }]}
-                >
-                  <Input placeholder="请输入组织名称" />
-                </Form.Item>
-
-                {/* 组织类型 */}
-                <Form.Item
-                  name="org_type"
-                  label="组织类型"
-                  rules={[{ required: true, message: '请选择组织类型' }]}
-                >
-                  <Select 
-                    placeholder="请选择组织类型"
-                    onChange={() => {
-                      // 当组织类型变更时，清除父组织选择
-                      form.setFieldValue('parent_id', undefined);
-                    }}
-                  >
-                    <Option value={1}>总部</Option>
-                    <Option value={2}>市场</Option>
-                    <Option value={3}>仓库</Option>
-                  </Select>
-                </Form.Item>
-
-                {/* 父组织 */}
+                {/* 上级机构 */}
                 <Form.Item
                   name="parent_id"
-                  label="父组织"
-                  rules={[
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        const orgType = getFieldValue('org_type');
-                        if (orgType === 2 || orgType === 3) {
-                          if (!value) {
-                            return Promise.reject('请选择父组织');
-                          }
-                        }
-                        return Promise.resolve();
-                      },
-                    }),
-                  ]}
+                  label="上级机构"
+                  rules={[{ required: true, message: '请选择上级机构' }]}
                 >
-                  <Select
-                    placeholder="请选择父组织"
-                    disabled={!form.getFieldValue('org_type') || form.getFieldValue('org_type') === 1}
-                  >
-                    {getParentOptions(form.getFieldValue('org_type')).map(org => (
-                      <Option key={org.org_id} value={org.org_id}>
-                        {org.org_name}
-                      </Option>
-                    ))}
-                  </Select>
+                  <TreeSelect
+                    placeholder="请选择上级机构"
+                    treeDefaultExpandAll
+                    showSearch
+                    allowClear
+                    treeData={treeData}
+                    styles={{
+                      popup: {
+                        root: {
+                          maxHeight: 400,
+                          overflow: 'auto'
+                        }
+                      }
+                    }}
+                    filterTreeNode={(input, node) => 
+                      (node?.title as string)?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                    }
+                    onChange={handleParentChange}
+                    treeIcon
+                    treeLine
+                  />
+                </Form.Item>
+
+                {/* 机构类型 - 仅用于展示中文，实际数值存在form中 */}
+                <Form.Item
+                  label="机构类型"
+                  required
+                >
+                  <div style={{ position: 'relative' }}>
+                    <Input
+                      placeholder="请先选择上级机构"
+                      disabled
+                      value={orgTypeName}
+                      readOnly
+                    />
+                    <Form.Item 
+                      name="org_type"
+                      noStyle
+                      rules={[{ required: true, message: '请选择上级机构以确定机构类型' }]}
+                    >
+                      <Input type="hidden" />
+                    </Form.Item>
+                  </div>
+                </Form.Item>
+
+                {/* 机构ID */}
+                <Form.Item
+                  name="org_id"
+                  label="机构ID"
+                  rules={[{ required: true, message: '请输入机构ID' }]}
+                >
+                  <Input placeholder="请输入机构ID" />
+                </Form.Item>
+
+                {/* 机构名称 */}
+                <Form.Item
+                  name="org_name"
+                  label="机构名称"
+                  rules={[{ required: true, message: '请输入机构名称' }]}
+                >
+                  <Input placeholder="请输入机构名称" />
                 </Form.Item>
 
                 {/* 排序 */}
