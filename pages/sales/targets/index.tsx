@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin, Modal, message } from 'antd';
+import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin, Modal, message, Button } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { MonthlySalesTarget, OrgListItem } from '@/types/api';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -94,10 +94,10 @@ const SalesTargetsPage: React.FC = () => {
         setTotal(response.data.data.total || (response.data.data.length || 0));
         setError(null);
       } else {
-        setError('获取月目标失败');
+        setError('获取目标失败');
       }
     } catch (err) {
-      setError('获取月目标失败，请稍后再试');
+      setError('获取目标失败，请稍后再试');
     } finally {
       setIsLoadingData(false);
       setIsRefreshing(false);
@@ -124,11 +124,11 @@ const SalesTargetsPage: React.FC = () => {
           setTotal(response.data.data.total || (response.data.data.length || 0));
           setError(null);
         } else {
-          setError('获取月目标失败');
+          setError('获取目标失败');
         }
       } catch (err) {
         if (!isMounted) return;
-        setError('获取月目标失败，请稍后再试');
+        setError('获取目标失败，请稍后再试');
       } finally {
         if (isMounted) {
           setIsLoadingData(false);
@@ -161,12 +161,12 @@ const SalesTargetsPage: React.FC = () => {
     }
   };
 
-  // 删除月目标
+  // 删除目标
   const handleDelete = async (targetId: number) => {
     confirm({
       title: '确认删除',
       icon: <ExclamationCircleOutlined />,
-      content: '确定要删除此月目标吗？删除后不可恢复。',
+      content: '确定要删除此目标吗？删除后不可恢复。',
       okText: '删除',
       okType: 'danger',
       cancelText: '取消',
@@ -176,12 +176,12 @@ const SalesTargetsPage: React.FC = () => {
           if (response.data.success) {
             // 从列表中移除已删除的目标
             setTargets(targets.filter(target => target.id !== targetId));
-            message.success('月目标删除成功');
+            message.success('目标删除成功');
           } else {
-            message.error(response.data.message || '删除月目标失败');
+            message.error(response.data.message || '删除目标失败');
           }
         } catch (err) {
-          message.error('删除月目标失败，请稍后再试');
+          message.error('删除目标失败，请稍后再试');
         }
       }
     });
@@ -346,31 +346,34 @@ const SalesTargetsPage: React.FC = () => {
   return (
     <Layout>
       <Head>
-        <title>月-目标管理 | 销售助手</title>
-        <meta name="description" content="管理月目标" />
+        <title>目标管理 | 销售助手</title>
+        <meta name="description" content="管理目标" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
         <div className="py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-gray-900">月-目标管理</h1>
-            <button
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">目标管理</h1>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
               onClick={() => router.push('/sales/targets/new')}
-              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center' }}
             >
-              <PlusIcon className="h-5 w-5 mr-2" />
               新增目标
-            </button>
+            </Button>
           </div>
+          <p className="mt-1 text-sm text-gray-500">
+            管理销售目标和业绩指标。
+          </p>
 
           {/* 筛选器 */}
-          <div className="mt-4 bg-white p-4 rounded-md shadow">
-            <div className="flex flex-wrap gap-4">
-              <div>
-                <label htmlFor="month" className="form-label">年月</label>
+          <div className="bg-white p-3 sm:p-4 rounded-md shadow mb-4 mt-6">
+            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-3 sm:gap-4">
+              <div className="w-full sm:w-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-1">年月:</label>
                 <DatePicker 
                   picker="month" 
-                  className="mt-1" 
                   value={dayjs(`${year}-${month.toString().padStart(2, '0')}-01`)}
                   onChange={handleMonthChange}
                   allowClear={false}
@@ -378,16 +381,14 @@ const SalesTargetsPage: React.FC = () => {
                   format="YYYY年MM月"
                 />
               </div>
-              <div>
-                <label htmlFor="org_id" className="form-label">机构</label>
+              <div className="w-full sm:w-auto">
+                <label className="block text-sm font-medium text-gray-700 mb-1">机构:</label>
                 <Select
-                  id="org_id"
                   value={selectedOrgId}
                   onChange={(value: string) => setSelectedOrgId(value)}
                   style={{ width: '100%', minWidth: '200px' }}
                   placeholder="请选择仓库"
                   allowClear
-                  className="mt-1"
                 >
                   <Option value="">全部</Option>
                   {orgGroups.map(group => (
@@ -402,15 +403,60 @@ const SalesTargetsPage: React.FC = () => {
                   ))}
                 </Select>
               </div>
-              <div className="flex items-end">
-                <button
+              <div className="flex gap-2 mt-2 sm:mt-0">
+                <Button
+                  type="primary"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="btn btn-outline h-10"
                 >
-                  <ArrowPathIcon className={`h-5 w-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  刷新
-                </button>
+                  查询
+                </Button>
+                <Button
+                  onClick={() => {
+                    // 重置为当前年月
+                    const now = new Date();
+                    const currentYear = now.getFullYear();
+                    const currentMonth = now.getMonth() + 1;
+                    
+                    // 先更新状态
+                    setYear(currentYear);
+                    setMonth(currentMonth);
+                    setSelectedOrgId('');
+                    
+                    // 直接使用新值调用加载数据函数，而不是依赖状态更新
+                    setIsRefreshing(true);
+                    setIsLoadingData(true);
+                    
+                    // 使用新的值构建参数
+                    const params = { 
+                      year: currentYear, 
+                      month: currentMonth, 
+                      skip: (currentPage - 1) * pageSize, 
+                      limit: pageSize 
+                    };
+                    
+                    // 直接调用API
+                    salesAPI.getSalesTargets(params)
+                      .then(response => {
+                        if (response.data.success && response.data.data) {
+                          setTargets(response.data.data.items || response.data.data);
+                          setTotal(response.data.data.total || (response.data.data.length || 0));
+                          setError(null);
+                        } else {
+                          setError('获取目标失败');
+                        }
+                      })
+                      .catch(err => {
+                        setError('获取目标失败，请稍后再试');
+                      })
+                      .finally(() => {
+                        setIsLoadingData(false);
+                        setIsRefreshing(false);
+                      });
+                  }}
+                >
+                  重置
+                </Button>
               </div>
             </div>
           </div>
@@ -422,7 +468,7 @@ const SalesTargetsPage: React.FC = () => {
             </div>
           )}
 
-          {/* 月目标列表 - 使用Ant Design表格 */}
+          {/* 目标列表 */}
           <div className="mt-6">
             <Table 
               columns={columns}
@@ -434,13 +480,13 @@ const SalesTargetsPage: React.FC = () => {
               locale={{
                 emptyText: (
                   <div className="p-8 text-center text-gray-500">
-                    <p className="mb-4">暂无月目标数据</p>
+                    <p className="mb-4">暂无目标数据</p>
                     <button
                       onClick={() => router.push('/sales/targets/new')}
                       className="btn btn-outline"
                     >
                       <PlusIcon className="h-5 w-5 mr-2" />
-                      添加月目标
+                      添加目标
                     </button>
                   </div>
                 )
