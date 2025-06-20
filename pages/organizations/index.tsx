@@ -438,14 +438,6 @@ const OrganizationsPage: React.FC = () => {
               >
                 新增机构
               </Button>
-              <Button
-                icon={<ReloadOutlined spin={isRefreshing} />}
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                style={{ display: 'flex', alignItems: 'center' }}
-              >
-                刷新
-              </Button>
             </div>
           </div>
           <p className="mt-1 text-sm text-gray-500">
