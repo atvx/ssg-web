@@ -12,7 +12,7 @@ import {
   CloseOutlined,
   LogoutOutlined,
   AimOutlined,
-  SettingOutlined
+  MoneyCollectOutlined
 } from '@ant-design/icons';
 import { Layout as AntLayout, Menu, Button, Drawer, Dropdown, Avatar, Space, MenuProps } from 'antd';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,10 +34,11 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: '仪表板', href: '/', icon: <HomeOutlined /> },
-  { name: '销售数据', href: '/sales/data', icon: <BarChartOutlined /> },
-  { name: '目标管理', href: '/sales/targets', icon: <AimOutlined /> },
+  { name: '营业统计', href: '/sales/charts', icon: <BarChartOutlined /> },
+  { name: '数据中心', href: '/sales/data', icon: <MoneyCollectOutlined /> },
   { name: '报表中心', href: '/sales/reports', icon: <FileTextOutlined /> },
   { name: '任务中心', href: '/tasks', icon: <ClockCircleOutlined /> },
+  { name: '目标管理', href: '/sales/targets', icon: <AimOutlined /> },
   { name: '机构管理', href: '/organizations', icon: <ApartmentOutlined />, requiresAdmin: true },
 ];
 
