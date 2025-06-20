@@ -4,14 +4,15 @@ import { SalesData } from '@/types/api';
 import { Spin } from 'antd';
 
 interface SalesDataTableProps {
-  data: SalesData | null;
-  isLoading: boolean;
+  data?: SalesData | null;
+  isLoading?: boolean;
+  className?: string;
 }
 
-const SalesDataTable: React.FC<SalesDataTableProps> = ({ data, isLoading }) => {
+const SalesDataTable: React.FC<SalesDataTableProps> = ({ data, isLoading = false, className = '' }) => {
   if (isLoading) {
     return (
-      <div className="text-center py-4">
+      <div className={`text-center py-4 ${className}`}>
         <Spin size="small" />
       </div>
     );
@@ -19,14 +20,14 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({ data, isLoading }) => {
 
   if (!data || !data.details || data.details.length === 0) {
     return (
-      <div className="text-center py-4">
+      <div className={`text-center py-4 ${className}`}>
         <p className="text-gray-500">暂无销售数据</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className={`overflow-x-auto ${className}`}>
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>

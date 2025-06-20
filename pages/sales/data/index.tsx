@@ -6,9 +6,12 @@ import { CalendarIcon, ArrowPathIcon, MagnifyingGlassIcon } from '@heroicons/rea
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import SalesDataTable from '@/components/sales/SalesDataTable';
+import SalesCharts from '@/components/sales/SalesCharts';
 import { salesAPI } from '@/lib/api';
 import { SalesData } from '@/types/api';
-import { Spin } from 'antd';
+import { Spin, Tabs } from 'antd';
+
+const { TabPane } = Tabs;
 
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -18,6 +21,7 @@ const SalesDataPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [platform, setPlatform] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('charts');
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -26,30 +30,6 @@ const SalesDataPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // 获取销售数据
-  const fetchData = async () => {
-    if (isAuthenticated) {
-      try {
-        setIsLoadingData(true);
-        setError(null);
-        const response = await salesAPI.fetchData({ 
-          date, 
-          platform: platform || undefined,
-          sync: true 
-        });
-        if (response.data.success && response.data.data) {
-          setSalesData(response.data.data as SalesData);
-        } else {
-          setError('获取数据失败');
-        }
-      } catch (err) {
-        setError('获取数据失败，请稍后再试');
-      } finally {
-        setIsLoadingData(false);
-      }
-    }
-  };
-
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
@@ -57,6 +37,10 @@ const SalesDataPage: React.FC = () => {
   if (!isAuthenticated) {
     return null; // 等待重定向
   }
+
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+  };
 
   return (
     <Layout>
@@ -68,106 +52,25 @@ const SalesDataPage: React.FC = () => {
       <div className="py-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-900">销售数据</h1>
-          <button
-            onClick={fetchData}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-            disabled={isLoadingData}
-          >
-            <ArrowPathIcon className={`h-5 w-5 mr-1 ${isLoadingData ? 'animate-spin' : ''}`} />
-            {isLoadingData ? <Spin size="small" /> : '数据同步'}
-          </button>
         </div>
         <p className="mt-1 text-sm text-gray-500">
           查看和筛选销售数据。
         </p>
+      </div>
 
-        {/* 筛选器 */}
-        <div className="mt-6 bg-white p-4 rounded-md shadow">
-          <div className="flex flex-wrap gap-4">
-            <div>
-              <label htmlFor="date" className="form-label flex items-center">
-                <CalendarIcon className="h-5 w-5 mr-1 text-gray-400" />
-                日期
-              </label>
-              <input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="form-input mt-1"
-              />
-            </div>
-            <div>
-              <label htmlFor="platform" className="form-label">平台</label>
-              <select
-                id="platform"
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-                className="form-input mt-1"
-              >
-                <option value="">全部平台</option>
-                <option value="taobao">淘宝</option>
-                <option value="jd">京东</option>
-                <option value="pdd">拼多多</option>
-                <option value="douyin">抖音</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={fetchData}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-                disabled={isLoadingData}
-              >
-                <MagnifyingGlassIcon className="h-5 w-5 mr-1" />
-                {isLoadingData ? <Spin size="small" /> : '查询'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 错误提示 */}
-        {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* 数据统计 */}
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2">
-          <div className="card px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">总销售额</dt>
-                  <dd>
-                    <div className="text-3xl font-bold text-gray-800">
-                      {isLoadingData ? <Spin /> : salesData ? `¥${salesData.amount.toLocaleString()}` : '暂无数据'}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-          <div className="card px-4 py-5 sm:p-6">
-            <div className="flex items-center">
-              <div className="w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">总订单数</dt>
-                  <dd>
-                    <div className="text-3xl font-bold text-gray-800">
-                      {isLoadingData ? <Spin /> : salesData ? salesData.count : '暂无数据'}
-                    </div>
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 销售数据表格 */}
-        <div className="mt-6 bg-white shadow overflow-hidden rounded-md">
-          <SalesDataTable data={salesData} isLoading={isLoadingData} />
-        </div>
+      <div className="bg-white shadow rounded-lg p-6">
+        <Tabs activeKey={activeTab} onChange={handleTabChange} className="mb-6">
+          <TabPane tab="数据图表" key="charts">
+            <SalesCharts className="mt-6" />
+          </TabPane>
+          <TabPane tab="数据列表" key="table">
+            <SalesDataTable 
+              className="mt-6" 
+              data={salesData} 
+              isLoading={isLoadingData} 
+            />
+          </TabPane>
+        </Tabs>
       </div>
     </Layout>
   );
