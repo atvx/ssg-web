@@ -554,7 +554,7 @@ const OrganizationsPage: React.FC = () => {
                     scroll={{ x: 'max-content' }}
                     size="small"
                     tableLayout="auto"
-                    bordered
+                    bordered={true}
                   />
                 </div>
                 <div className="p-2 sm:p-4 border-t border-gray-200">

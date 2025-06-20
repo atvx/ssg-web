@@ -174,7 +174,7 @@ const DailyAverageChart: React.FC<DailyAverageChartProps> = ({
 
   if (showCard) {
     return (
-      <Card title="各仓周日均" className="mb-6" bordered={true}>
+      <Card title="各仓周日均" className="mb-6" variant="outlined">
         {chartContent}
       </Card>
     );

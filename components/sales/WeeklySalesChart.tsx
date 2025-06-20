@@ -172,15 +172,13 @@ const WeeklySalesChart: React.FC<WeeklySalesChartProps> = ({
     </ClientOnly>
   );
 
-  if (showCard) {
-    return (
-      <Card title="各仓周销售" className="mb-6" bordered={true}>
-        {chartContent}
-      </Card>
-    );
-  }
-
-  return chartContent;
+  return showCard ? (
+    <Card title="各仓周销售" className="mb-6" variant="outlined">
+      {chartContent}
+    </Card>
+  ) : (
+    chartContent
+  );
 };
 
 export default WeeklySalesChart; 

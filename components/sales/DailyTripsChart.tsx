@@ -35,7 +35,7 @@ const DailyTripsChart: React.FC<DailyTripsChartProps> = ({
           if (item.seriesType === 'line') {
             result += `${item.seriesName}: ${item.value}%<br/>`;
           } else {
-            result += `${item.seriesName}: ${item.value} 车次<br/>`;
+            result += `${item.seriesName}: ${item.value}<br/>`;
           }
         });
         return result;
@@ -157,7 +157,7 @@ const DailyTripsChart: React.FC<DailyTripsChartProps> = ({
 
   if (showCard) {
     return (
-      <Card title="各仓日均车次" className="mb-6" bordered={true}>
+      <Card title="各仓日均车次" className="mb-6" variant="outlined">
         {chartContent}
       </Card>
     );

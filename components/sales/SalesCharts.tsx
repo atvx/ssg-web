@@ -81,7 +81,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
       <Card 
         title={`各${categoryText}周环比`} 
         className="mb-6" 
-        bordered={true}
+        variant="outlined"
         extra={
           <Radio.Group value={category} onChange={handleCategoryChange} buttonStyle="solid">
             <Radio.Button value="warehouse">仓库</Radio.Button>
@@ -91,7 +91,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="w-full">
-            <h3 className="text-lg font-medium mb-4 text-center">各{categoryText}周销售及环比变化</h3>
+            <h3 className="text-lg font-medium mb-4 text-center">周销售</h3>
             <WeeklySalesChart 
               showCard={false} 
               names={currentData.names}
@@ -101,7 +101,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
             />
           </div>
           <div className="w-full">
-            <h3 className="text-lg font-medium mb-4 text-center">各{categoryText}周日均及环比变化</h3>
+            <h3 className="text-lg font-medium mb-4 text-center">周日均</h3>
             <DailyAverageChart 
               showCard={false} 
               names={currentData.names}
@@ -111,7 +111,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
             />
           </div>
           <div className="w-full">
-            <h3 className="text-lg font-medium mb-4 text-center">各{categoryText}周车次及环比变化</h3>
+            <h3 className="text-lg font-medium mb-4 text-center">周车次</h3>
             <WeeklyTripsChart 
               showCard={false} 
               names={currentData.names}
@@ -121,7 +121,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
             />
           </div>
           <div className="w-full">
-            <h3 className="text-lg font-medium mb-4 text-center">各{categoryText}日均车次及环比变化</h3>
+            <h3 className="text-lg font-medium mb-4 text-center">日均车次</h3>
             <DailyTripsChart 
               showCard={false} 
               names={currentData.names}

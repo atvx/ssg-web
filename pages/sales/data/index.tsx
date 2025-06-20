@@ -10,8 +10,7 @@ import SalesCharts from '@/components/sales/SalesCharts';
 import { salesAPI } from '@/lib/api';
 import { SalesData } from '@/types/api';
 import { Spin, Tabs } from 'antd';
-
-const { TabPane } = Tabs;
+import type { TabsProps } from 'antd';
 
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,6 +41,19 @@ const SalesDataPage: React.FC = () => {
     setActiveTab(key);
   };
 
+  const tabItems: TabsProps['items'] = [
+    {
+      key: 'charts',
+      label: '数据图表',
+      children: <SalesCharts className="mt-6" />
+    },
+    {
+      key: 'table',
+      label: '数据列表',
+      children: <SalesDataTable className="mt-6" data={salesData} isLoading={isLoadingData} />
+    }
+  ];
+
   return (
     <Layout>
       <Head>
@@ -59,18 +71,12 @@ const SalesDataPage: React.FC = () => {
       </div>
 
       <div className="bg-white shadow rounded-lg p-6">
-        <Tabs activeKey={activeTab} onChange={handleTabChange} className="mb-6">
-          <TabPane tab="数据图表" key="charts">
-            <SalesCharts className="mt-6" />
-          </TabPane>
-          <TabPane tab="数据列表" key="table">
-            <SalesDataTable 
-              className="mt-6" 
-              data={salesData} 
-              isLoading={isLoadingData} 
-            />
-          </TabPane>
-        </Tabs>
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={handleTabChange} 
+          className="mb-6"
+          items={tabItems}
+        />
       </div>
     </Layout>
   );
