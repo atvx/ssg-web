@@ -21,6 +21,7 @@
     "dayjs": "^1.11.13",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
+    "html2canvas": "^1.4.1",
     "js-cookie": "^3.0.5",
     "jwt-decode": "^3.1.2",
     "moment": "^2.30.1",

@@ -4,6 +4,7 @@ export interface APIResponse<T = any> {
   success: boolean;
   message: string;
   data: T | null;
+  total?: number;
 }
 
 // 认证相关类型
@@ -55,6 +56,43 @@ export interface VerificationResponse {
   status: string;
   message: string;
   data: Record<string, any>;
+}
+
+// 销售记录相关类型
+export interface SalesRecord {
+  id: number;
+  date: string;
+  platform: string;
+  warehouse_name: string;
+  income_amt: string;
+  sales_cart_count: number;
+  avg_income_amt: string;
+  created_at: string;
+}
+
+export interface SalesRecordCreate {
+  date: string;
+  platform: string;
+  warehouse_name: string;
+  income_amt: string;
+  sales_cart_count: number;
+  avg_income_amt?: string;
+}
+
+export interface SalesRecordUpdate {
+  date?: string;
+  platform?: string;
+  warehouse_name?: string;
+  income_amt?: string;
+  sales_cart_count?: number;
+  avg_income_amt?: string;
+}
+
+export interface SalesRecordListResponse {
+  items: SalesRecord[];
+  total: number;
+  current?: number;
+  pageSize?: number;
 }
 
 // 销售目标相关类型
@@ -137,9 +175,12 @@ export interface Task {
   user_id: number;
   task_type: string;
   status: string;
+  progress?: number;
   result?: any;
+  error?: string;
   created_at: string;
   updated_at: string;
+  params?: string;
 }
 
 // 销售数据相关类型

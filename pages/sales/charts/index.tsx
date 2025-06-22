@@ -4,11 +4,14 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import SalesCharts from '@/components/sales/SalesCharts';
-import { Spin } from 'antd';
+import DailyReportContent from '@/components/sales/DailyReportContent';
+import { Spin, Tabs } from 'antd';
+import type { TabsProps } from 'antd';
 
 const SalesChartsPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<string>('daily');
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -16,6 +19,23 @@ const SalesChartsPage: React.FC = () => {
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  const tabItems: TabsProps['items'] = [
+    {
+      key: 'daily',
+      label: '日',
+      children: <DailyReportContent className="mt-4" />,
+    },
+    {
+      key: 'weekly',
+      label: '周',
+      children: <SalesCharts className="mt-4" />,
+    },
+  ];
+
+  const handleTabChange = (key: string) => {
+    setActiveTab(key);
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
@@ -41,7 +61,13 @@ const SalesChartsPage: React.FC = () => {
         </p>
       </div>
 
-      <SalesCharts className="mt-6" />
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={handleTabChange}
+        items={tabItems} 
+        type="card" 
+        size="large"
+      />
     </Layout>
   );
 };

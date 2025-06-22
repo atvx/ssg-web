@@ -2,18 +2,47 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
-import { CheckCircleIcon, XCircleIcon, ClockIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
-import { tasksAPI } from '@/lib/api';
+import { tasksAPI, salesAPI } from '@/lib/api';
 import { Task } from '@/types/api';
-import PageHeader from '@/components/ui/PageHeader';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import { Spin, Modal, message } from 'antd';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { 
+  Spin, 
+  Modal, 
+  message, 
+  Table, 
+  Button, 
+  Alert, 
+  Tag, 
+  Space, 
+  Typography,
+  ConfigProvider,
+  Form,
+  DatePicker,
+  Select
+} from 'antd';
+import { 
+  ExclamationCircleOutlined, 
+  CheckCircleOutlined, 
+  CloseCircleOutlined, 
+  ClockCircleOutlined, 
+  DeleteOutlined, 
+  EyeOutlined,
+  SyncOutlined,
+  PlusOutlined,
+  PlayCircleOutlined
+} from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import zhCN from 'antd/locale/zh_CN';
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+
+// 设置 dayjs 为中文
+dayjs.locale('zh-cn');
 
 const { confirm } = Modal;
+const { Title, Text } = Typography;
+const { Option } = Select;
 
 const TasksPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -21,6 +50,12 @@ const TasksPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [executingTaskIds, setExecutingTaskIds] = useState<number[]>([]);
+  
+  // 创建任务相关状态
+  const [createTaskModalVisible, setCreateTaskModalVisible] = useState(false);
+  const [createTaskForm] = Form.useForm();
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -82,35 +117,165 @@ const TasksPage: React.FC = () => {
     });
   };
 
-  // 获取任务状态图标
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case 'failed':
-        return <XCircleIcon className="h-5 w-5 text-red-500" />;
-      case 'pending':
-      case 'processing':
-      default:
-        return <ClockIcon className="h-5 w-5 text-yellow-500" />;
+  // 执行任务
+  const handleExecuteTask = async (taskId: number) => {
+    try {
+      setExecutingTaskIds(prev => [...prev, taskId]);
+      
+      // 调用执行任务API
+      const response = await tasksAPI.executeTask(taskId);
+      
+      if (response.data.success) {
+        message.success('任务执行请求已发送');
+        // 延迟几秒后刷新任务列表
+        setTimeout(() => {
+          fetchTasks();
+        }, 2000);
+      } else {
+        message.error(response.data.message || '执行任务失败');
+      }
+    } catch (error) {
+      message.error('执行任务请求失败，请稍后再试');
+    } finally {
+      setExecutingTaskIds(prev => prev.filter(id => id !== taskId));
     }
   };
 
-  // 获取任务状态文本
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '已完成';
-      case 'failed':
-        return '失败';
-      case 'pending':
-        return '等待中';
-      case 'processing':
-        return '处理中';
-      default:
-        return status;
+  // 刷新任务列表
+  const handleRefresh = () => {
+    fetchTasks();
+  };
+
+  // 处理创建任务按钮点击
+  const handleCreateTaskClick = () => {
+    // 重置表单
+    createTaskForm.resetFields();
+    // 默认设置为今天日期
+    createTaskForm.setFieldsValue({
+      date: dayjs(),
+      platform: 'all'
+    });
+    // 显示创建任务对话框
+    setCreateTaskModalVisible(true);
+  };
+
+  // 处理创建任务提交
+  const handleCreateTaskSubmit = async (values: any) => {
+    try {
+      setIsCreatingTask(true);
+      
+      // 构造同步参数
+      const params: any = {
+        sync: false
+      };
+      
+      if (values.date) {
+        params.date = format(values.date.toDate(), 'yyyy-MM-dd');
+      }
+      
+      if (values.platform && values.platform !== 'all') {
+        params.platform = values.platform;
+      }
+      
+      // 调用创建任务API
+      const response = await salesAPI.fetchData(params);
+      
+      if (response.data.success) {
+        message.success('任务创建成功，请稍后刷新查看结果');
+        setCreateTaskModalVisible(false);
+        // 延迟几秒后刷新任务列表
+        setTimeout(() => {
+          handleRefresh();
+        }, 3000);
+      } else {
+        message.error(response.data.message || '创建任务失败');
+      }
+    } catch (error) {
+      message.error('创建任务请求失败，请稍后再试');
+    } finally {
+      setIsCreatingTask(false);
     }
   };
+
+  // 获取任务状态标签
+  const getStatusTag = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Tag icon={<CheckCircleOutlined />} color="success">已完成</Tag>;
+      case 'failed':
+        return <Tag icon={<CloseCircleOutlined />} color="error">失败</Tag>;
+      case 'running':
+        return <Tag icon={<SyncOutlined spin />} color="processing">运行中</Tag>;
+      case 'pending':
+        return <Tag icon={<ClockCircleOutlined />} color="warning">等待中</Tag>;
+      case 'processing':
+        return <Tag icon={<SyncOutlined spin />} color="processing">处理中</Tag>;
+      default:
+        return <Tag>{status}</Tag>;
+    }
+  };
+
+  // 表格列定义
+  const columns: ColumnsType<Task> = [
+    {
+      title: '任务类型',
+      dataIndex: 'task_type',
+      key: 'task_type',
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => getStatusTag(status),
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (text) => format(new Date(text), 'yyyy-MM-dd HH:mm:ss'),
+      sorter: (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      render: (text) => format(new Date(text), 'yyyy-MM-dd HH:mm:ss'),
+      sorter: (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime(),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      align: 'right',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button 
+            type="link" 
+            icon={<PlayCircleOutlined />} 
+            onClick={() => handleExecuteTask(record.id)}
+            loading={executingTaskIds.includes(record.id)}
+            disabled={['running', 'processing'].includes(record.status)}
+          >
+            执行
+          </Button>
+          <Button 
+            type="link" 
+            icon={<EyeOutlined />} 
+            onClick={() => router.push(`/tasks/${record.id}`)}
+          >
+            详情
+          </Button>
+          <Button 
+            type="link" 
+            danger 
+            icon={<DeleteOutlined />} 
+            onClick={() => handleDeleteTask(record.id)}
+          >
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
@@ -127,89 +292,105 @@ const TasksPage: React.FC = () => {
         <meta name="description" content="查看和管理异步任务" />
       </Head>
 
-      <div className="py-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-gray-900">任务中心</h1>
-        </div>
-        <p className="mt-1 text-sm text-gray-500">
-          查看和管理异步任务的状态和结果。
-        </p>
-
-        {/* 错误提示 */}
-        {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-            {error}
+      <ConfigProvider locale={zhCN}>
+        <div className="py-6">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <Title level={2} style={{ margin: 0 }}>任务中心</Title>
+              <Text type="secondary">查看和管理异步任务的状态和结果。</Text>
+            </div>
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={handleCreateTaskClick}
+              >
+                创建任务
+              </Button>
+              <Button 
+                icon={<SyncOutlined />} 
+                onClick={handleRefresh}
+                loading={isLoadingTasks}
+              >
+                刷新
+              </Button>
+            </Space>
           </div>
-        )}
 
-        {/* 任务列表 */}
-        <div className="mt-6 bg-white shadow overflow-hidden rounded-md">
-          {isLoadingTasks ? (
-            <div className="p-4 text-center"><Spin /></div>
-          ) : tasks.length > 0 ? (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    任务类型
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    状态
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    创建时间
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    更新时间
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {tasks.map((task) => (
-                  <tr key={task.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {task.task_type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getStatusIcon(task.status)}
-                        <span className="ml-1.5 text-sm text-gray-900">
-                          {getStatusText(task.status)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {format(new Date(task.created_at), 'yyyy-MM-dd HH:mm:ss')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {format(new Date(task.updated_at), 'yyyy-MM-dd HH:mm:ss')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => router.push(`/tasks/${task.id}`)}
-                        className="text-primary-600 hover:text-primary-900 mr-4"
-                      >
-                        详情
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-4 text-center text-gray-500">暂无任务数据</div>
+          {/* 错误提示 */}
+          {error && (
+            <Alert 
+              message={error} 
+              type="error" 
+              showIcon 
+              className="mb-4" 
+            />
           )}
+
+          {/* 任务列表 */}
+          <Table
+            columns={columns}
+            dataSource={tasks}
+            rowKey="id"
+            loading={isLoadingTasks}
+            pagination={{ 
+              showSizeChanger: true, 
+              pageSizeOptions: ['10', '20', '50'],
+              showTotal: (total) => `共 ${total} 条记录`
+            }}
+            locale={{ emptyText: '暂无任务数据' }}
+            className="bg-white shadow rounded-md"
+          />
         </div>
-      </div>
+      </ConfigProvider>
+
+      {/* 创建任务对话框 */}
+      <Modal
+        title="创建任务"
+        open={createTaskModalVisible}
+        onCancel={() => setCreateTaskModalVisible(false)}
+        footer={null}
+      >
+        <Form
+          form={createTaskForm}
+          layout="vertical"
+          onFinish={handleCreateTaskSubmit}
+        >
+          <Form.Item
+            name="date"
+            label="选择日期"
+            rules={[{ required: true, message: '请选择日期' }]}
+          >
+            <DatePicker 
+              style={{ width: '100%' }} 
+              format="YYYY-MM-DD"
+              placeholder="选择日期"
+            />
+          </Form.Item>
+          
+          <Form.Item
+            name="platform"
+            label="选择平台"
+            rules={[{ required: true, message: '请选择平台' }]}
+            initialValue="all"
+          >
+            <Select placeholder="选择平台">
+              <Option value="all">所有平台</Option>
+              <Option value="duowei">多维</Option>
+              <Option value="meituan">美团</Option>
+            </Select>
+          </Form.Item>
+          
+          <div className="flex justify-end gap-2 mt-4">
+            <Button onClick={() => setCreateTaskModalVisible(false)}>
+              取消
+            </Button>
+            <Button type="primary" htmlType="submit" loading={isCreatingTask}>
+              创建任务
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </Layout>
   );
 };

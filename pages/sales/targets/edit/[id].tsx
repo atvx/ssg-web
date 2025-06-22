@@ -68,10 +68,10 @@ const EditTargetPage: React.FC = () => {
               car_count: targetData.car_count || 0
             });
           } else {
-            setError('获取月目标详情失败');
+            setError('获取目标详情失败');
           }
         } catch (err) {
-          setError('获取月目标详情失败，请稍后再试');
+          setError('获取目标详情失败，请稍后再试');
         } finally {
           setIsLoadingData(false);
         }
@@ -152,10 +152,10 @@ const EditTargetPage: React.FC = () => {
         // 更新成功，返回列表页
         router.push('/sales/targets');
       } else {
-        setError(response.data.message || '更新月目标失败');
+        setError(response.data.message || '更新目标失败');
       }
     } catch (err) {
-      setError('更新月目标失败，请稍后再试');
+      setError('更新目标失败，请稍后再试');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,20 +186,20 @@ const EditTargetPage: React.FC = () => {
   return (
     <Layout>
       <Head>
-        <title>编辑月目标 | 销售助手</title>
-        <meta name="description" content="编辑月目标" />
+        <title>编辑目标 | 销售助手</title>
+        <meta name="description" content="编辑目标" />
       </Head>
 
       <ConfigProvider locale={zhCN}>
         <div className="py-6">
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">编辑月目标</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">编辑目标</h1>
             <Button 
               icon={<ArrowLeftIcon className="h-5 w-5 mr-1" />} 
               onClick={() => router.push('/sales/targets')}
               className="btn btn-outline"
             >
-              返回列表
+              返回
             </Button>
           </div>
 

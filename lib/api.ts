@@ -1,6 +1,6 @@
 import axios, { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
-import { APIResponse, Login, UserCreate, UserUpdate, PasswordChangeRequest, MonthlySalesTargetCreate, MonthlySalesTargetUpdate, OrgCreate, OrgUpdate } from '@/types/api';
+import { APIResponse, Login, UserCreate, UserUpdate, PasswordChangeRequest, MonthlySalesTargetCreate, MonthlySalesTargetUpdate, OrgCreate, OrgUpdate, SalesRecordCreate, SalesRecordUpdate } from '@/types/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -112,6 +112,31 @@ export const salesAPI = {
   deleteSalesTarget: (targetId: number) => {
     return apiClient.delete<APIResponse>(`/api/sales/targets/${targetId}`);
   },
+
+  // 获取销售记录列表
+  getSalesRecords: (params?: { skip?: number; limit?: number; org_id?: string; start_date?: string; end_date?: string; status?: string }) => {
+    return apiClient.get<APIResponse>('/api/sales/records', { params });
+  },
+  
+  // 获取单个销售记录详情
+  getSalesRecord: (recordId: number) => {
+    return apiClient.get<APIResponse>(`/api/sales/records/${recordId}`);
+  },
+  
+  // 创建销售记录
+  createSalesRecord: (data: SalesRecordCreate) => {
+    return apiClient.post<APIResponse>('/api/sales/records', data);
+  },
+  
+  // 更新销售记录
+  updateSalesRecord: (recordId: number, data: SalesRecordUpdate) => {
+    return apiClient.put<APIResponse>(`/api/sales/records/${recordId}`, data);
+  },
+  
+  // 删除销售记录
+  deleteSalesRecord: (recordId: number) => {
+    return apiClient.delete<APIResponse>(`/api/sales/records/${recordId}`);
+  },
   
   // 导出日报
   exportDailyReport: (params?: { date?: string; file_type?: 'excel' | 'pdf' | 'png' }) => {
@@ -138,7 +163,12 @@ export const tasksAPI = {
   
   // 获取任务状态
   getTaskStatus: (taskId: number) => {
-    return apiClient.get<APIResponse>(`/api/tasks/status/${taskId}`);
+    return apiClient.get<APIResponse>(`/api/tasks/${taskId}/status`);
+  },
+  
+  // 执行任务
+  executeTask: (taskId: number) => {
+    return apiClient.post<APIResponse>(`/api/tasks/execute/${taskId}`);
   },
 };
 
