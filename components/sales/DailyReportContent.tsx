@@ -425,6 +425,38 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
           line-height: 35px !important;
           text-align: center !important;
         }
+        .ant-table-tbody > tr:not(.subtotal-row):not(.market-boundary-row) > td:nth-child(2) {
+          // text-align: left !important;
+        }
+        .ant-table-tbody > tr.market-boundary-row > td:nth-child(3) {
+          // text-align: left !important;
+        }
+        /* 确保总计行的所有单元格居中对齐 */
+        .ant-table-tbody > tr.total-row > td {
+          text-align: center !important;
+        }
+        /* 确保最后一行（总计）的所有单元格居中 */
+        .ant-table-tbody > tr:last-child > td {
+          text-align: center !important;
+        }
+        /* 特别确保最后一行的特定单元格居中 */
+        .ant-table-tbody > tr:last-child > td:first-child,
+        .ant-table-tbody > tr:last-child > td:nth-child(2),
+        .ant-table-tbody > tr:last-child > td:nth-child(3),
+        .ant-table-tbody > tr:last-child > td:nth-child(4) {
+          text-align: center !important;
+        }
+        /* 特别强调针对显示"127"的单元格，使用更高优先级选择器 */
+        .ant-table-tbody > tr:last-child > td:nth-child(4),
+        .ant-table-tbody > tr[class*="total"] td:nth-child(4),
+        .ant-table-tbody > tr:last-of-type td:nth-child(4),
+        .ant-table-tbody > tr:last-child > td[class*="vehicleConfig"],
+        table tr:last-child td:nth-child(4) {
+          text-align: center !important;
+          display: table-cell !important;
+          vertical-align: middle !important;
+        }
+        
         .ant-table-thead > tr > th {
           vertical-align: middle !important;
           height: 40px !important;
@@ -559,7 +591,7 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
         open={previewVisible}
         onCancel={() => setPreviewVisible(false)}
         width={1100}
-        bodyStyle={{ maxHeight: '80vh', overflow: 'auto' }}
+        styles={{ body: { maxHeight: '80vh', overflow: 'auto' } }}
         footer={[
           <Button key="close" onClick={() => setPreviewVisible(false)}>
             关闭
