@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 // 修改中文语言包的导入方式，解决服务器端渲染问题
 import zhCN from 'antd/lib/date-picker/locale/zh_CN';
-import html2canvas from 'html2canvas';
+import domtoimage from 'dom-to-image';
 import { DownloadOutlined, EyeOutlined } from '@ant-design/icons';
 
 // 使用新的数据格式
@@ -416,44 +416,55 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
     if (!tableRef.current) return null;
     
     try {
-      // 获取表格的标题
-      const canvas = await html2canvas(tableRef.current, {
-        scale: 2, // 提高图片质量
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        logging: false,
-        // 等待字体和图像加载完成
-        onclone: (document) => {
-          const element = document.querySelector('.ant-table-container') as HTMLElement;
-          if (element) {
-            element.style.width = '100%';
-            // 添加边框
-            element.style.border = '1px solid #e8e8e8';
-          }
-          
-          // 设置行高和垂直居中
-          const rows = document.querySelectorAll('.ant-table-tbody > tr');
-          rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            cells.forEach(cell => {
-              (cell as HTMLElement).style.height = '30px';
-              (cell as HTMLElement).style.lineHeight = '30px';
-              (cell as HTMLElement).style.verticalAlign = 'middle';
-            });
-          });
-          
-          // 设置表头行高和垂直居中
-          const headerCells = document.querySelectorAll('.ant-table-thead > tr > th');
-          headerCells.forEach(cell => {
-            (cell as HTMLElement).style.height = '30px';
-            (cell as HTMLElement).style.lineHeight = '30px';
-            (cell as HTMLElement).style.verticalAlign = 'middle';
-          });
+      // 添加临时样式使表格内容垂直居中
+      const tempStyles = document.createElement('style');
+      tempStyles.innerHTML = `
+        .ant-table-tbody > tr > td {
+          vertical-align: middle !important;
+          height: 35px !important;
+          line-height: 35px !important;
+          text-align: center !important;
         }
+        .ant-table-thead > tr > th {
+          vertical-align: middle !important;
+          height: 40px !important;
+          line-height: 40px !important;
+          text-align: center !important;
+          background-color: #f5f5f5 !important;
+          font-weight: bold !important;
+        }
+        .ant-table-container {
+          border: 1px solid #e8e8e8 !important;
+          margin: 0 !important;
+        }
+        .ant-table {
+          font-size: 14px !important;
+        }
+      `;
+      document.head.appendChild(tempStyles);
+      
+      // 添加额外的padding用于预览和导出
+      const originalPadding = tableRef.current.style.padding;
+      tableRef.current.style.padding = '20px';
+      tableRef.current.style.backgroundColor = '#ffffff';
+      
+      // 使用dom-to-image生成PNG，提高质量
+      const dataUrl = await domtoimage.toPng(tableRef.current, {
+        quality: 1.0,
+        bgcolor: '#ffffff',
+        height: tableRef.current.offsetHeight + 40, // 增加一些空间
+        width: tableRef.current.offsetWidth, 
+        style: {
+          margin: '0',
+          padding: '20px'
+        },
       });
       
-      // 转换Canvas为图片URL
-      return canvas.toDataURL('image/png');
+      // 恢复原始样式
+      tableRef.current.style.padding = originalPadding;
+      document.head.removeChild(tempStyles);
+      
+      return dataUrl;
     } catch (error) {
       console.error('生成图片失败:', error);
       return null;
@@ -530,16 +541,25 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
           </div>
         }
       >
-        <div ref={tableRef}>
+        <div 
+          ref={tableRef} 
+          className="daily-sales-report-container"
+          style={{ 
+            backgroundColor: '#ffffff',
+            borderRadius: '2px',
+            overflow: 'hidden'
+          }}
+        >
           <DailySalesTable data={tableData} loading={loading} date={currentDate} />
         </div>
       </Card>
 
       <Modal
-        title="图片预览"
+        title={`市场销售日报 ${currentDate.format('YYYY年MM月DD日')} - 预览`}
         open={previewVisible}
         onCancel={() => setPreviewVisible(false)}
-        width={1000}
+        width={1100}
+        bodyStyle={{ maxHeight: '80vh', overflow: 'auto' }}
         footer={[
           <Button key="close" onClick={() => setPreviewVisible(false)}>
             关闭
@@ -561,12 +581,16 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
           </Button>
         ]}
       >
-        <div style={{ overflow: 'auto', textAlign: 'center' }}>
+        <div style={{ overflow: 'auto', textAlign: 'center', padding: '10px', backgroundColor: '#f0f2f5' }}>
           {previewImageUrl && (
             <img 
               src={previewImageUrl} 
               alt="预览图片" 
-              style={{ maxWidth: '100%' }}
+              style={{ 
+                maxWidth: '100%',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                border: '1px solid #d9d9d9'
+              }}
             />
           )}
         </div>
