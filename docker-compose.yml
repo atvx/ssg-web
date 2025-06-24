@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # 前端应用
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sales-assistant:latest
+    container_name: sales-assistant-frontend
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3109}:3109"
+    environment:
+      - NODE_ENV=production
+      - PORT=3109
+      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_JWT_EXPIRY=86400
+      - NEXT_PUBLIC_AUTH_STORAGE=cookie
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3109/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - ./public/uploads:/app/public/uploads
+
