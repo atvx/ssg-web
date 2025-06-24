@@ -128,4 +128,5 @@ fi
 # 显示应用访问信息
 PORT=$(grep "PORT=" $ENV_FILE | cut -d= -f2 || echo "3109")
 echo -e "\n${GREEN}应用部署完成!${NC}"
-echo -e "访问应用: ${YELLOW}http://localhost:${PORT}${NC}" 
+echo -e "访问应用: ${YELLOW}http://localhost:${PORT}${NC}"
+echo -e "查看日志: ${YELLOW}docker logs -f ssg-web${NC}" 

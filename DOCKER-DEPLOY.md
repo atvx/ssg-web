@@ -152,13 +152,13 @@ docker compose down
 
 ```bash
 # 查看实时日志
-docker logs -f sales-assistant-frontend
+docker logs -f ssg-web
 
 # 查看最近100行日志
-docker logs --tail 100 sales-assistant-frontend
+docker logs --tail 100 ssg-web
 
 # 查看特定时间范围的日志
-docker logs --since 2023-01-01T00:00:00 sales-assistant-frontend
+docker logs --since 2023-01-01T00:00:00 ssg-web
 ```
 
 ## 故障排除
