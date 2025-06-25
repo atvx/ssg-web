@@ -14,9 +14,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_SKIP_NATIVE_POSTINSTALL=1
 ENV NEXT_SKIP_NATIVE_MINIFY=1
 
-# 重要：在构建阶段注入API URL
+# 重要：在构建阶段注入API URL和WebSocket URL
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 
 # 安装依赖
 COPY package.json package-lock.json ./
@@ -28,8 +30,9 @@ COPY . .
 
 # 构建应用
 ENV NODE_ENV=production
-# 显示API URL，方便调试
+# 显示API URL和WebSocket URL，方便调试
 RUN echo "Building with NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
+RUN echo "Building with NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}"
 # 使用低内存构建脚本替代原本的构建命令
 RUN npm run build:lowmem || npm run build
 
