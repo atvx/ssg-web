@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
@@ -12,7 +12,8 @@ import {
   Form, 
   message,
   Pagination,
-  Modal
+  Modal,
+  Input
 } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -26,6 +27,9 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
+
+// WebSocket地址
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws';
 
 const { Option, OptGroup } = Select;
 const { RangePicker } = DatePicker;
@@ -41,6 +45,18 @@ const SalesDataPage: React.FC = () => {
   const [form] = Form.useForm();
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  
+  // WebSocket相关状态
+  const wsRef = useRef<WebSocket | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [needVerification, setNeedVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [verificationTaskId, setVerificationTaskId] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationModalVisible, setVerificationModalVisible] = useState(false);
+  const [countDown, setCountDown] = useState(60);
+  const [countDownActive, setCountDownActive] = useState(false);
+  const countDownRef = useRef<NodeJS.Timeout | null>(null);
   
   // 同步对话框相关状态
   const [syncModalVisible, setSyncModalVisible] = useState(false);
@@ -173,6 +189,106 @@ const SalesDataPage: React.FC = () => {
     setSyncModalVisible(true);
   };
 
+  // 连接WebSocket
+  const connectWebSocket = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      return; // 已连接，不需要重复连接
+    }
+    
+    // 创建WebSocket连接
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    
+    // 连接成功事件
+    ws.onopen = () => {
+      setWsConnected(true);
+      console.log('WebSocket连接已建立');
+      // 订阅验证频道
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        channels: ['verification']
+      }));
+    };
+    
+    // 接收消息事件
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('接收到WebSocket消息:', data);
+        
+        // 处理需要验证的情况
+        if (data.type === 'verification_needed') {
+          setVerificationTaskId(data.task_id);
+          setVerificationMessage(data.message);
+          setVerificationModalVisible(true);
+          
+          // 启动倒计时
+          setCountDown(60);
+          setCountDownActive(true);
+          
+          if (countDownRef.current) {
+            clearInterval(countDownRef.current);
+          }
+          
+          countDownRef.current = setInterval(() => {
+            setCountDown((prev) => {
+              if (prev <= 1) {
+                clearInterval(countDownRef.current as NodeJS.Timeout);
+                setCountDownActive(false);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+        
+        // 处理验证成功的情况
+        if (data.type === 'verification_success') {
+          message.success('验证码验证成功');
+          setVerificationModalVisible(false);
+          
+          if (countDownRef.current) {
+            clearInterval(countDownRef.current);
+            setCountDownActive(false);
+          }
+        }
+      } catch (error) {
+        console.error('解析WebSocket消息失败:', error);
+      }
+    };
+    
+    // 错误事件
+    ws.onerror = (error) => {
+      console.error('WebSocket错误:', error);
+      setWsConnected(false);
+    };
+    
+    // 关闭事件
+    ws.onclose = () => {
+      console.log('WebSocket连接已关闭');
+      setWsConnected(false);
+    };
+  };
+  
+  // 关闭WebSocket连接
+  const closeWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+      setWsConnected(false);
+    }
+  };
+  
+  // 组件卸载时关闭WebSocket
+  useEffect(() => {
+    return () => {
+      closeWebSocket();
+      if (countDownRef.current) {
+        clearInterval(countDownRef.current);
+      }
+    };
+  }, []);
+
   // 处理同步数据提交
   const handleSyncSubmit = async (values: any) => {
     try {
@@ -189,6 +305,11 @@ const SalesDataPage: React.FC = () => {
       
       if (values.platform && values.platform !== 'all') {
         params.platform = values.platform;
+      }
+      
+      // 如果平台是美团或所有平台，连接WebSocket
+      if (values.platform === 'meituan' || values.platform === 'all') {
+        connectWebSocket();
       }
       
       // 调用同步API
@@ -208,6 +329,27 @@ const SalesDataPage: React.FC = () => {
       message.error('同步请求失败，请稍后再试');
     } finally {
       setIsSyncing(false);
+    }
+  };
+  
+  // 处理验证码提交
+  const handleVerificationSubmit = async () => {
+    if (!verificationTaskId || !verificationCode) {
+      message.error('请输入验证码');
+      return;
+    }
+    
+    try {
+      const response = await salesAPI.submitVerificationCode(verificationTaskId, verificationCode);
+      
+      if (response.data.success) {
+        message.success('验证码已提交');
+        // 不关闭对话框，等待WebSocket返回结果
+      } else {
+        message.error(response.data.message || '验证码提交失败');
+      }
+    } catch (error) {
+      message.error('验证码提交请求失败');
     }
   };
 
@@ -535,6 +677,50 @@ const SalesDataPage: React.FC = () => {
             </Button>
             <Button type="primary" htmlType="submit" loading={isSyncing}>
               开始同步
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+      
+      {/* 验证码输入对话框 */}
+      <Modal
+        title="输入验证码"
+        open={verificationModalVisible}
+        onCancel={() => setVerificationModalVisible(false)}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        destroyOnClose
+      >
+        <div className="mb-4">
+          <p className="text-base">{verificationMessage}</p>
+          <p className="text-sm text-gray-500 mt-1">验证码将在 <span className="text-red-500">{countDown}</span> 秒内有效</p>
+        </div>
+        
+        <Form layout="vertical">
+          <Form.Item
+            label="验证码"
+            rules={[{ required: true, message: '请输入验证码' }]}
+          >
+            <Input 
+              placeholder="请输入验证码" 
+              value={verificationCode} 
+              onChange={(e) => setVerificationCode(e.target.value)}
+              maxLength={6}
+            />
+          </Form.Item>
+          
+          <div className="flex justify-end gap-2 mt-4">
+            <Button onClick={() => setVerificationModalVisible(false)} disabled={isSyncing}>
+              取消
+            </Button>
+            <Button 
+              type="primary" 
+              onClick={handleVerificationSubmit} 
+              loading={isSyncing}
+              disabled={!verificationCode || verificationCode.length < 4 || countDown <= 0}
+            >
+              提交验证码
             </Button>
           </div>
         </Form>

@@ -88,6 +88,11 @@ export const salesAPI = {
     return apiClient.get<APIResponse>('/api/sales/fetch', { params });
   },
   
+  // 提交验证码
+  submitVerificationCode: (taskId: string, code: string) => {
+    return apiClient.post<APIResponse>(`/api/verification/${taskId}/submit`, { code });
+  },
+  
   // 获取销售目标列表
   getSalesTargets: (params?: { skip?: number; limit?: number; org_id?: string; year?: number; month?: number }) => {
     return apiClient.get<APIResponse>('/api/sales/targets', { params });
