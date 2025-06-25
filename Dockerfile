@@ -8,6 +8,11 @@ WORKDIR /app
 
 # 设置Node内存限制，适应低内存环境
 ENV NODE_OPTIONS="--max-old-space-size=512"
+# 禁用Next.js遥测
+ENV NEXT_TELEMETRY_DISABLED=1
+# 强制使用Babel而不是SWC来构建，解决SWC二进制兼容性问题
+ENV NEXT_SKIP_NATIVE_POSTINSTALL=1
+ENV NEXT_SKIP_NATIVE_MINIFY=1
 
 # 安装依赖
 COPY package.json package-lock.json ./
@@ -19,7 +24,8 @@ COPY . .
 
 # 构建应用
 ENV NODE_ENV=production
-RUN npm run build
+# 使用低内存构建脚本替代原本的构建命令
+RUN npm run build:lowmem || npm run build
 
 # 阶段2: 仅保留生产运行所需的文件
 FROM node:16-alpine AS runner

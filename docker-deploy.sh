@@ -40,6 +40,8 @@ while [[ $# -gt 0 ]]; do
       ;;
     -b|--build)
       BUILD=true
+      CREATE_SWAP=true  # 构建时自动开启SWAP
+      SWAP_SIZE="4"     # 默认使用4GB SWAP
       shift
       ;;
     -c|--clean)
@@ -79,6 +81,28 @@ create_swap() {
       free -h
     fi
   fi
+}
+
+# 清理系统资源
+clean_system() {
+  echo -e "${YELLOW}清理系统资源以释放空间...${NC}"
+  
+  # 清理Docker缓存
+  echo -e "${YELLOW}清理未使用的Docker资源...${NC}"
+  docker system prune -f
+  
+  # 清理apt缓存
+  echo -e "${YELLOW}清理apt缓存...${NC}"
+  sudo apt-get clean || true
+  
+  # 清理日志文件
+  echo -e "${YELLOW}清理日志文件...${NC}"
+  sudo find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
+  sudo find /var/log -type f -name "*.gz" -delete 2>/dev/null || true
+  
+  # 显示磁盘使用情况
+  echo -e "${YELLOW}清理后的磁盘使用情况:${NC}"
+  df -h
 }
 
 # 清理SWAP文件
@@ -142,8 +166,11 @@ if [ "$CLEAN" = true ]; then
   docker compose -f $COMPOSE_FILE down
 fi
 
-# 如果是构建模式，尝试创建SWAP
+# 如果是构建模式，尝试创建SWAP和清理系统
 if [ "$BUILD" = true ] && [ "$CREATE_SWAP" = true ]; then
+  # 清理系统资源
+  clean_system
+  # 创建SWAP
   create_swap
 fi
 
