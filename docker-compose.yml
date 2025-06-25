@@ -14,7 +14,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3109
-      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-${API_URL:-http://localhost:8000}}
+      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000/ws}
       - NEXT_PUBLIC_JWT_EXPIRY=86400
       - NEXT_PUBLIC_AUTH_STORAGE=cookie
     healthcheck:

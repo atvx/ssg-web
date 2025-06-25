@@ -209,6 +209,18 @@ fi
 
 # 显示应用访问信息
 PORT=$(grep "PORT=" $ENV_FILE | cut -d= -f2 || echo "3109")
+API_URL=$(grep "API_URL=" $ENV_FILE | cut -d= -f2 || echo "未设置")
+NEXT_PUBLIC_API_URL=$(grep "NEXT_PUBLIC_API_URL=" $ENV_FILE | cut -d= -f2 || echo "未设置")
+
 echo -e "\n${GREEN}应用部署完成!${NC}"
 echo -e "访问应用: ${YELLOW}http://localhost:${PORT}${NC}"
-echo -e "查看日志: ${YELLOW}docker logs -f ssg-web${NC}" 
+echo -e "查看日志: ${YELLOW}docker logs -f ssg-web${NC}"
+
+# 检查API地址是否正确设置
+if [[ "$API_URL" == "未设置" || "$API_URL" == "http://localhost:8000" || "$API_URL" == "http://api-server-host:8000" ]]; then
+  echo -e "\n${RED}警告: API地址可能未正确设置!${NC}"
+  echo -e "当前API地址: ${YELLOW}${API_URL}${NC}"
+  echo -e "请确保在 ${YELLOW}${ENV_FILE}${NC} 文件中设置了正确的API_URL和NEXT_PUBLIC_API_URL"
+  echo -e "示例: ${GREEN}API_URL=http://真实的API服务器地址:端口${NC}"
+  echo -e "      ${GREEN}NEXT_PUBLIC_API_URL=http://真实的API服务器地址:端口${NC}"
+fi 
