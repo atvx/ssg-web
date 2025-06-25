@@ -180,6 +180,10 @@ if [ "$BUILD" = true ]; then
   echo -e "${YELLOW}当前内存状态:${NC}"
   free -h
   
+  # 显示构建参数
+  echo -e "${YELLOW}使用以下API地址构建:${NC} ${NEXT_PUBLIC_API_URL:-${API_URL:-http://localhost:8000}}"
+  echo -e "${YELLOW}注意：每次修改API地址后都需要重新构建Docker镜像！${NC}"
+  
   # 构建前使用更多优化参数
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
@@ -188,6 +192,8 @@ if [ "$BUILD" = true ]; then
   docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
 else
   echo -e "${YELLOW}启动容器...${NC}"
+  echo -e "${YELLOW}警告: 未选择重新构建，API地址等环境变量的修改可能不会生效！${NC}"
+  echo -e "${YELLOW}如需应用新的API地址，请使用 --build 参数重新构建镜像。${NC}"
   docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
 fi
 

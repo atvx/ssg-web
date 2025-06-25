@@ -63,6 +63,44 @@ npm start
 npm run lint
 ```
 
+## Docker部署
+
+### 准备工作
+
+1. 复制环境变量示例文件并修改
+```bash
+cp docker.env.example docker.env.dev
+```
+
+2. 编辑环境变量，设置正确的API地址
+```bash
+# 修改docker.env.dev，设置API地址
+# 必须同时设置两个变量
+API_URL=http://你的API服务器地址
+NEXT_PUBLIC_API_URL=http://你的API服务器地址
+```
+
+3. 使用部署脚本
+```bash
+# 给脚本执行权限
+chmod +x docker-deploy.sh
+
+# 构建并部署（重要：必须使用-b参数重新构建镜像，才能应用新的API地址）
+./docker-deploy.sh -e dev -b
+```
+
+### 环境变量说明
+
+- `API_URL` 和 `NEXT_PUBLIC_API_URL`: 必须同时设置为相同的API服务器地址
+- `NEXT_PUBLIC_WS_URL`: WebSocket连接地址
+- `PORT`: 应用端口号(默认3109)
+
+### 重要提示
+
+- **每次修改API地址后必须使用`-b`参数重新构建Docker镜像**
+- 环境变量文件(`docker.env.*`)不会被提交到Git仓库，确保安全性
+- 只有`docker.env.example`示例文件会被提交，请勿在此文件中设置实际的API地址
+
 ## 项目结构
 
 ```

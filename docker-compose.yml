@@ -6,6 +6,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # 构建参数，确保在构建时传递API地址
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-${API_URL:-http://localhost:8000}}
     image: ssg-web:latest
     container_name: ssg-web
     restart: unless-stopped
@@ -14,6 +17,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3109
+      # 这些运行时环境变量对于NEXT_PUBLIC_开头的变量不起作用，因为Next.js在构建时已经嵌入了这些值
+      # 保留这些设置只是为了与容器内部的环境保持一致
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-${API_URL:-http://localhost:8000}}
       - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000/ws}
       - NEXT_PUBLIC_JWT_EXPIRY=86400
