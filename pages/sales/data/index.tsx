@@ -99,6 +99,7 @@ const SalesDataPage: React.FC = () => {
   const [syncForm] = Form.useForm();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncTipVisible, setSyncTipVisible] = useState(false);
+  const [mainPageSyncTipVisible, setMainPageSyncTipVisible] = useState(false);
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -223,6 +224,8 @@ const SalesDataPage: React.FC = () => {
     });
     // 显示同步对话框
     setSyncModalVisible(true);
+    // 默认为all平台，所以设置提示为可见
+    setSyncTipVisible(true);
   };
 
   // 平台选择
@@ -376,9 +379,12 @@ const SalesDataPage: React.FC = () => {
         params.platform = values.platform;
       }
       
-      // 如果平台是美团或所有平台，连接WebSocket
+      // 如果平台是美团或所有平台，连接WebSocket并显示主页面提示
       if (values.platform === 'meituan' || values.platform === 'all') {
         connectWebSocket();
+        setMainPageSyncTipVisible(true);
+      } else {
+        setMainPageSyncTipVisible(false);
       }
       
       // 调用同步API
@@ -389,14 +395,17 @@ const SalesDataPage: React.FC = () => {
         setTimeout(() => {
           handleRefresh();
           setIsSyncing(false); // 完成后重置同步状态
+          setMainPageSyncTipVisible(false); // 隐藏提示消息
         }, 3000);
       } else {
         message.error(response.data.message || '同步失败');
         setIsSyncing(false);
+        setMainPageSyncTipVisible(false); // 失败时也隐藏提示消息
       }
     } catch (error) {
       message.error('同步请求失败，请稍后再试');
       setIsSyncing(false);
+      setMainPageSyncTipVisible(false); // 出错时隐藏提示消息
     }
   };
   
@@ -693,14 +702,19 @@ const SalesDataPage: React.FC = () => {
                 >
                   重置
                 </Button>
-                <Button
-                  disabled={isRefreshing}
-                  onClick={handleSyncClick}
-                  icon={<ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
-                  loading={isSyncing}
-                >
-                  同步
-                </Button>
+                <div className="flex items-center">
+                  <Button
+                    disabled={isRefreshing}
+                    onClick={handleSyncClick}
+                    icon={<ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
+                    loading={isSyncing}
+                  >
+                    同步
+                  </Button>
+                  {mainPageSyncTipVisible && (
+                    <span className="text-xs text-gray-500 ml-2">预计3分钟左右完成同步</span>
+                  )}
+                </div>
               </div>
             </Form>
           </div>
@@ -776,12 +790,6 @@ const SalesDataPage: React.FC = () => {
               <Option value="meituan">美团</Option>
             </Select>
           </Form.Item>
-          
-          {syncTipVisible && (
-            <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-blue-600 text-sm">同步时间预计3分钟左右</p>
-            </div>
-          )}
           
           <div className="flex justify-end gap-2 mt-4">
             <Button onClick={() => setSyncModalVisible(false)}>
