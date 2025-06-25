@@ -29,9 +29,22 @@ apiClient.interceptors.request.use(
 // 响应拦截器，处理错误
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
+    // 检查是否是验证码相关的API响应
+    const url = response.config.url || '';
+    if (url.includes('/verification/')) {
+      // 不显示验证码相关的任何提示，直接返回响应
+      return response;
+    }
     return response;
   },
   (error: AxiosError) => {
+    // 拦截验证码相关的错误
+    const url = error.config?.url || '';
+    if (url.includes('/verification/')) {
+      // 不显示验证码相关的错误提示，直接返回错误
+      return Promise.reject(error);
+    }
+    
     // 处理401未授权错误
     if (error.response && error.response.status === 401) {
       Cookies.remove('token');
@@ -86,11 +99,6 @@ export const salesAPI = {
   // 获取销售数据
   fetchData: (params?: { date?: string; platform?: string; user_id?: number; sync?: boolean }) => {
     return apiClient.get<APIResponse>('/api/sales/fetch', { params });
-  },
-  
-  // 提交验证码
-  submitVerificationCode: (taskId: string, code: string) => {
-    return apiClient.post<APIResponse>(`/api/verification/${taskId}/submit`, { code });
   },
   
   // 获取销售目标列表
