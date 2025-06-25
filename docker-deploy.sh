@@ -17,6 +17,7 @@ show_help() {
   echo "  -e, --env ENV     指定环境 (dev, test, prod) [默认: dev]"
   echo "  -b, --build       重新构建镜像"
   echo "  -c, --clean       部署前清理"
+  echo "  -s, --swap SIZE   创建临时SWAP文件，单位GB [默认: 不创建]"
   echo "  -h, --help        显示帮助信息"
   echo ""
 }
@@ -25,6 +26,8 @@ show_help() {
 ENV="dev"
 BUILD=false
 CLEAN=false
+CREATE_SWAP=false
+SWAP_SIZE=0
 
 # 解析命令行参数
 while [[ $# -gt 0 ]]; do
@@ -43,6 +46,12 @@ while [[ $# -gt 0 ]]; do
       CLEAN=true
       shift
       ;;
+    -s|--swap)
+      CREATE_SWAP=true
+      SWAP_SIZE="$2"
+      shift
+      shift
+      ;;
     -h|--help)
       show_help
       exit 0
@@ -54,6 +63,35 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# 创建SWAP文件以增加虚拟内存（适用于低内存服务器）
+create_swap() {
+  if [ "$CREATE_SWAP" = true ]; then
+    if [ -f /swapfile ]; then
+      echo -e "${YELLOW}SWAP文件已存在，跳过创建${NC}"
+    else
+      echo -e "${YELLOW}创建${SWAP_SIZE}GB SWAP文件以增加虚拟内存...${NC}"
+      sudo fallocate -l ${SWAP_SIZE}G /swapfile
+      sudo chmod 600 /swapfile
+      sudo mkswap /swapfile
+      sudo swapon /swapfile
+      echo -e "${GREEN}SWAP文件已创建并激活${NC}"
+      free -h
+    fi
+  fi
+}
+
+# 清理SWAP文件
+cleanup_swap() {
+  if [ "$CREATE_SWAP" = true ]; then
+    if [ -f /swapfile ]; then
+      echo -e "${YELLOW}清理临时SWAP文件...${NC}"
+      sudo swapoff /swapfile
+      sudo rm -f /swapfile
+      echo -e "${GREEN}SWAP文件已清理${NC}"
+    fi
+  fi
+}
 
 # 设置环境特定变量
 case $ENV in
@@ -104,14 +142,31 @@ if [ "$CLEAN" = true ]; then
   docker compose -f $COMPOSE_FILE down
 fi
 
+# 如果是构建模式，尝试创建SWAP
+if [ "$BUILD" = true ] && [ "$CREATE_SWAP" = true ]; then
+  create_swap
+fi
+
 # 构建和启动
 if [ "$BUILD" = true ]; then
   echo -e "${YELLOW}构建和启动容器...${NC}"
+  echo -e "${YELLOW}当前内存状态:${NC}"
+  free -h
+  
+  # 构建前使用更多优化参数
+  export DOCKER_BUILDKIT=1
+  export COMPOSE_DOCKER_CLI_BUILD=1
+  
   docker compose -f $COMPOSE_FILE --env-file $ENV_FILE build --no-cache && \
   docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
 else
   echo -e "${YELLOW}启动容器...${NC}"
   docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
+fi
+
+# 清理SWAP文件（如果是临时创建的）
+if [ "$BUILD" = true ] && [ "$CREATE_SWAP" = true ]; then
+  cleanup_swap
 fi
 
 # 检查启动状态

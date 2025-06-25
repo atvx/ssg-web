@@ -6,9 +6,13 @@ FROM node:16-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
+# 设置Node内存限制，适应低内存环境
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
 # 安装依赖
 COPY package.json package-lock.json ./
-RUN npm ci
+# 使用更轻量的安装方式替代npm ci
+RUN npm install --no-optional --no-fund --no-audit --production=false
 
 # 复制源代码
 COPY . .
@@ -27,6 +31,8 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV PORT 3109
+# 运行时内存限制更小
+ENV NODE_OPTIONS="--max-old-space-size=256"
 
 # 添加非root用户运行应用增强安全性
 RUN addgroup --system --gid 1001 nodejs
@@ -37,8 +43,10 @@ USER nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# 只复制生产环境所需的node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # 暴露端口
 EXPOSE 3109
