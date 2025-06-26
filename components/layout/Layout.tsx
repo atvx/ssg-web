@@ -104,7 +104,10 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center h-16 px-4 bg-white border-b">
-            <span className="text-xl font-bold text-gray-900">销售助手</span>
+            <div className="flex items-baseline">
+              <span className="text-xl font-bold text-gray-900">销售助手</span>
+              <span className="text-xs text-gray-400 ml-1">兰宝宝</span>
+            </div>
             <ClientOnly>
               <Button 
                 type="text" 
@@ -146,7 +149,10 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-center border-b border-gray-200">
-          <span className="text-xl font-bold text-gray-900">销售助手</span>
+          <div className="flex items-baseline">
+            <span className="text-xl font-bold text-gray-900">销售助手</span>
+            <span className="text-xs text-gray-400 ml-1">兰宝宝</span>
+          </div>
         </div>
 
         {/* 导航菜单 */}
@@ -195,7 +201,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
         </Header>
 
         {/* 页面内容 */}
-        <Content className="m-4 p-6 bg-white rounded shadow-sm">
+        <Content className="m-0 md:m-4 p-0 md:p-6 bg-white rounded shadow-sm">
           {children}
         </Content>
       </AntLayout>

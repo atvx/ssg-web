@@ -19,7 +19,12 @@ import {
   Divider,
   Result,
   Breadcrumb,
-  Modal
+  Modal,
+  Progress,
+  Badge,
+  Avatar,
+  Timeline,
+  Empty
 } from 'antd';
 import { 
   CheckCircleOutlined, 
@@ -29,18 +34,46 @@ import {
   ArrowLeftOutlined,
   SyncOutlined,
   ExclamationCircleOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  FileTextOutlined,
+  InfoCircleOutlined,
+  CodeOutlined
 } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 
 const { Title, Text, Paragraph } = Typography;
 const { confirm } = Modal;
 
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
+
 const TaskDetailPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const { id } = router.query;
   const taskId = id ? parseInt(id as string) : undefined;
+  const isMobile = useIsMobile();
   
   const [task, setTask] = useState<Task | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(true);
@@ -111,21 +144,63 @@ const TaskDetailPage: React.FC = () => {
     fetchTaskDetail();
   };
 
-  // 获取任务状态标签
-  const getStatusTag = (status: string) => {
-    switch (status) {
+  // 获取任务状态颜色和图标
+  const getStatusInfo = (status: string) => {
+    switch(status) {
       case 'completed':
-        return <Tag icon={<CheckCircleOutlined />} color="success">已完成</Tag>;
+        return { 
+          icon: <CheckCircleOutlined />, 
+          color: 'success',
+          textColor: 'text-emerald-500',
+          bgColor: 'bg-emerald-50',
+          avatarBg: 'bg-emerald-500',
+          text: '已完成'
+        };
       case 'failed':
-        return <Tag icon={<CloseCircleOutlined />} color="error">失败</Tag>;
+        return { 
+          icon: <CloseCircleOutlined />, 
+          color: 'error',
+          textColor: 'text-red-500',
+          bgColor: 'bg-red-50',
+          avatarBg: 'bg-red-500',
+          text: '失败'
+        };
       case 'running':
-        return <Tag icon={<SyncOutlined spin />} color="processing">运行中</Tag>;
+        return { 
+          icon: <SyncOutlined spin />, 
+          color: 'processing',
+          textColor: 'text-blue-500',
+          bgColor: 'bg-blue-50',
+          avatarBg: 'bg-blue-500',
+          text: '运行中'
+        };
       case 'pending':
-        return <Tag icon={<ClockCircleOutlined />} color="warning">等待中</Tag>;
+        return { 
+          icon: <ClockCircleOutlined />, 
+          color: 'warning',
+          textColor: 'text-amber-500',
+          bgColor: 'bg-amber-50',
+          avatarBg: 'bg-amber-500',
+          text: '等待中'
+        };
       case 'processing':
-        return <Tag icon={<SyncOutlined spin />} color="processing">处理中</Tag>;
+        return { 
+          icon: <SyncOutlined spin />, 
+          color: 'processing',
+          textColor: 'text-blue-500',
+          bgColor: 'bg-blue-50',
+          avatarBg: 'bg-blue-500',
+          text: '处理中'
+        };
       default:
-        return <Tag>{status}</Tag>;
+        return { 
+          icon: <InfoCircleOutlined />, 
+          color: 'default',
+          textColor: 'text-gray-500',
+          bgColor: 'bg-gray-50',
+          avatarBg: 'bg-gray-500',
+          text: status
+        };
     }
   };
 
@@ -149,6 +224,16 @@ const TaskDetailPage: React.FC = () => {
     return null; // 等待重定向
   }
 
+  // 任务状态信息
+  const statusInfo = task ? getStatusInfo(task.status) : { 
+    icon: <InfoCircleOutlined />, 
+    color: 'default',
+    textColor: 'text-gray-500',
+    bgColor: 'bg-gray-50',
+    avatarBg: 'bg-gray-500',
+    text: '未知'
+  };
+
   return (
     <Layout>
       <Head>
@@ -157,24 +242,37 @@ const TaskDetailPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          {/* 面包屑导航 */}
-          <Breadcrumb className="mb-4">
-            <Breadcrumb.Item>
-              <a onClick={() => router.push('/tasks')}>任务中心</a>
-            </Breadcrumb.Item>
-            <Breadcrumb.Item>任务详情</Breadcrumb.Item>
-          </Breadcrumb>
+        <div className="py-4 md:py-6 px-2 md:px-6">
+          {/* 面包屑导航 - 仅在非移动端显示 */}
+          {!isMobile && (
+            <Breadcrumb className="mb-4">
+              <Breadcrumb.Item>
+                <a onClick={() => router.push('/tasks')}>任务中心</a>
+              </Breadcrumb.Item>
+              <Breadcrumb.Item>任务详情</Breadcrumb.Item>
+            </Breadcrumb>
+          )}
 
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
             <div className="flex items-center">
-              <Title level={2} style={{ margin: 0 }}>任务详情</Title>
+              {isMobile && (
+                <Button
+                  type="default"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => router.push('/tasks')}
+                  size="middle"
+                  className="mr-3 flex items-center justify-center rounded-lg"
+                />
+              )}
+              <Title level={isMobile ? 3 : 2} style={{ margin: 0 }}>任务详情</Title>
             </div>
-            <Space>
+            <Space wrap={isMobile} size={isMobile ? "small" : "middle"} className="self-end md:self-auto">
               <Button 
                 icon={<ReloadOutlined />} 
                 onClick={handleRefresh}
                 loading={isLoadingTask}
+                size="middle"
+                className="rounded-lg flex items-center"
               >
                 刷新
               </Button>
@@ -182,16 +280,20 @@ const TaskDetailPage: React.FC = () => {
                 danger 
                 icon={<DeleteOutlined />} 
                 onClick={handleDeleteTask}
+                size="middle"
+                className="rounded-lg flex items-center"
               >
                 删除
               </Button>
-              <Button 
-                icon={<ArrowLeftOutlined />} 
-                onClick={() => router.push('/tasks')}
-                style={{ marginRight: '16px' }}
-              >
-                返回
-              </Button>
+              {!isMobile && (
+                <Button 
+                  icon={<ArrowLeftOutlined />} 
+                  onClick={() => router.push('/tasks')}
+                  className="rounded-lg"
+                >
+                  返回
+                </Button>
+              )}
             </Space>
           </div>
 
@@ -201,67 +303,152 @@ const TaskDetailPage: React.FC = () => {
               message={error} 
               type="error" 
               showIcon 
-              className="mb-4" 
+              className="mb-5 rounded-lg" 
             />
           )}
 
           {/* 任务详情 */}
           {isLoadingTask ? (
-            <div className="flex justify-center py-10">
-              <Spin size="large" tip="加载中..." />
+            <div className="flex flex-col justify-center items-center py-20">
+              <Spin size="large" />
+              <div className="mt-3 text-gray-500">加载任务信息...</div>
             </div>
           ) : task ? (
             <div>
-              <Card className="mb-4">
-                <Descriptions 
-                  title="基本信息" 
-                  bordered 
-                  column={{ xxl: 3, xl: 3, lg: 3, md: 2, sm: 1, xs: 1 }}
-                >
-                  <Descriptions.Item label="任务ID">{task.id}</Descriptions.Item>
-                  <Descriptions.Item label="用户ID">{task.user_id}</Descriptions.Item>
-                  <Descriptions.Item label="任务类型">{task.task_type}</Descriptions.Item>
-                  <Descriptions.Item label="状态">{getStatusTag(task.status)}</Descriptions.Item>
-                  <Descriptions.Item label="进度">{task.progress !== undefined ? `${task.progress}%` : '无进度信息'}</Descriptions.Item>
-                  <Descriptions.Item label="创建时间">
-                    {format(new Date(task.created_at), 'yyyy-MM-dd HH:mm:ss')}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="更新时间">
-                    {format(new Date(task.updated_at), 'yyyy-MM-dd HH:mm:ss')}
-                  </Descriptions.Item>
-                </Descriptions>
+              {/* 任务状态卡片 - 移动端和桌面端通用 */}
+              <Card className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100">
+                <div className="flex flex-col md:flex-row md:items-center">
+                  <div className={`p-4 md:p-6 ${statusInfo.bgColor} flex-shrink-0 w-full md:w-auto md:rounded-r-3xl`}>
+                    <div className="flex items-center justify-between md:justify-start md:flex-col">
+                      <div className="flex items-center">
+                        <Avatar 
+                          icon={statusInfo.icon} 
+                          size={44} 
+                          className={statusInfo.avatarBg}
+                        />
+                        <div className="ml-3">
+                          <div className={`text-lg font-medium ${statusInfo.textColor}`}>
+                            {statusInfo.text}
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            {task.task_type}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {task.progress !== undefined && (
+                        <div className="md:mt-3 md:self-start">
+                          <Progress 
+                            percent={task.progress} 
+                            size="small" 
+                            status={
+                              task.status === 'failed' ? 'exception' : 
+                              task.status === 'completed' ? 'success' : 'active'
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 md:p-6 flex-grow">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                      <div>
+                        <div className="text-gray-500 text-xs mb-1 flex items-center">
+                          <CalendarOutlined className="mr-1" /> 创建时间
+                        </div>
+                        <div className="text-sm">{format(new Date(task.created_at), isMobile ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd HH:mm:ss')}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-gray-500 text-xs mb-1 flex items-center">
+                          <CalendarOutlined className="mr-1" /> 更新时间
+                        </div>
+                        <div className="text-sm">{format(new Date(task.updated_at), isMobile ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd HH:mm:ss')}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-gray-500 text-xs mb-1 flex items-center">
+                          <UserOutlined className="mr-1" /> 用户ID
+                        </div>
+                        <div className="text-sm">{task.user_id}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-gray-500 text-xs mb-1 flex items-center">
+                          <InfoCircleOutlined className="mr-1" /> 任务ID
+                        </div>
+                        <div className="text-sm font-mono">{task.id}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </Card>
 
               {/* 任务参数 */}
               {task.params && (
-                <Card title="任务参数" className="mb-4">
-                  <pre className="bg-gray-50 p-4 rounded-md overflow-auto">
-                    {formatJson(task.params)}
-                  </pre>
+                <Card 
+                  title={
+                    <div className="flex items-center">
+                      <CodeOutlined className="mr-2 text-blue-500" /> 
+                      <span>任务参数</span>
+                    </div>
+                  }
+                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
+                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                >
+                  <div className="overflow-x-auto">
+                    <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
+                      {formatJson(task.params)}
+                    </pre>
+                  </div>
                 </Card>
               )}
 
               {/* 任务结果 */}
               {task.result && (
-                <Card title="任务结果" className="mb-4">
-                  <pre className="bg-gray-50 p-4 rounded-md overflow-auto">
-                    {formatJson(task.result)}
-                  </pre>
+                <Card 
+                  title={
+                    <div className="flex items-center">
+                      <FileTextOutlined className="mr-2 text-green-500" /> 
+                      <span>任务结果</span>
+                    </div>
+                  }
+                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
+                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                >
+                  <div className="overflow-x-auto">
+                    <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
+                      {formatJson(task.result)}
+                    </pre>
+                  </div>
                 </Card>
               )}
 
               {/* 错误信息 */}
               {task.error && (
-                <Card title="错误信息" className="mb-4">
+                <Card 
+                  title={
+                    <div className="flex items-center">
+                      <CloseCircleOutlined className="mr-2 text-red-500" /> 
+                      <span>错误信息</span>
+                    </div>
+                  }
+                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
+                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                >
                   <Alert
                     message="任务执行失败"
                     description={
-                      <pre className="mt-2 text-red-600 overflow-auto">
-                        {task.error}
-                      </pre>
+                      <div className="overflow-x-auto mt-2">
+                        <pre className="bg-red-50 p-3 rounded-lg text-xs font-mono text-red-600">
+                          {task.error}
+                        </pre>
+                      </div>
                     }
                     type="error"
                     showIcon
+                    className="border border-red-100 rounded-lg"
                   />
                 </Card>
               )}
@@ -269,10 +456,15 @@ const TaskDetailPage: React.FC = () => {
           ) : (
             <Result
               status="404"
-              title="404"
-              subTitle="任务不存在或已被删除"
+              title="任务不存在"
+              subTitle="该任务可能已被删除或尚未创建"
+              className="rounded-xl bg-white shadow-sm border border-gray-100 mt-4"
               extra={
-                <Button type="primary" onClick={() => router.push('/tasks')}>
+                <Button 
+                  type="primary" 
+                  onClick={() => router.push('/tasks')}
+                  className="rounded-lg"
+                >
                   返回任务列表
                 </Button>
               }

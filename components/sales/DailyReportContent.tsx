@@ -577,6 +577,7 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '' 
           ref={tableRef} 
           className="daily-sales-report-container"
           style={{ 
+            display: 'none',
             backgroundColor: '#ffffff',
             borderRadius: '2px',
             overflow: 'hidden'

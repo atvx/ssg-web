@@ -14,7 +14,9 @@ import {
   Pagination,
   Modal,
   Input,
-  Mentions
+  Mentions,
+  Alert,
+  FloatButton
 } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -25,7 +27,7 @@ import SalesDataTable from '@/components/sales/SalesDataTable';
 import { salesAPI, orgsAPI, authAPI } from '@/lib/api';
 import apiClient from '@/lib/api'; // 导入原始API客户端实例
 import { SalesRecordListResponse, OrgListItem } from '@/types/api';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -67,6 +69,28 @@ message.error = filteredErrorMethod;
 const { Option, OptGroup } = Select;
 const { RangePicker } = DatePicker;
 
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
+
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -76,8 +100,16 @@ const SalesDataPage: React.FC = () => {
   const [orgs, setOrgs] = useState<OrgListItem[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [form] = Form.useForm();
+  const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(isMobile ? 20 : 10);
+  const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
+  const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
+  
+  // 当设备类型变化时更新页面大小
+  useEffect(() => {
+    setPageSize(isMobile ? 20 : 10);
+  }, [isMobile]);
   
   // WebSocket相关状态
   const wsRef = useRef<WebSocket | null>(null);
@@ -91,7 +123,7 @@ const SalesDataPage: React.FC = () => {
   const [countDownActive, setCountDownActive] = useState(false);
   const countDownRef = useRef<NodeJS.Timeout | null>(null);
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
-  const verificationInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const verificationInputRefs = useRef<any[]>([]);
   const [phoneNumber, setPhoneNumber] = useState('未知手机号');
   
   // 同步对话框相关状态
@@ -150,9 +182,6 @@ const SalesDataPage: React.FC = () => {
           const warehouseName = getOrgNameById(values.org_id);
           params.warehouse = warehouseName;
         }
-        if (values.status) {
-          params.status = values.status;
-        }
         if (values.dateRange && values.dateRange.length === 2) {
           params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
           params.end_date = format(values.dateRange[1].toDate(), 'yyyy-MM-dd');
@@ -196,12 +225,38 @@ const SalesDataPage: React.FC = () => {
   // 处理表单查询
   const handleFormSubmit = (values: any) => {
     setCurrentPage(1); // 重置页码
+    
+    // 处理移动端日期选择
+    if (isMobile && (startDate || endDate)) {
+      if (!values.dateRange) {
+        values.dateRange = [];
+      }
+      if (startDate) {
+        values.dateRange[0] = startDate;
+      }
+      if (endDate) {
+        values.dateRange[1] = endDate;
+      }
+    }
+    
     loadSalesRecords(values);
   };
-
+  
+  // 处理移动端开始日期变更
+  const handleStartDateChange = (date: dayjs.Dayjs | null) => {
+    setStartDate(date);
+  };
+  
+  // 处理移动端结束日期变更
+  const handleEndDateChange = (date: dayjs.Dayjs | null) => {
+    setEndDate(date);
+  };
+  
   // 处理重置
   const handleReset = () => {
     form.resetFields();
+    setStartDate(null);
+    setEndDate(null);
     setCurrentPage(1);
     loadSalesRecords();
   };
@@ -528,9 +583,6 @@ const SalesDataPage: React.FC = () => {
         const warehouseName = getOrgNameById(values.org_id);
         params.warehouse = warehouseName;
       }
-      if (values.status) {
-        params.status = values.status;
-      }
       if (values.dateRange && values.dateRange.length === 2) {
         params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
         params.end_date = format(values.dateRange[1].toDate(), 'yyyy-MM-dd');
@@ -585,170 +637,211 @@ const SalesDataPage: React.FC = () => {
     <Layout>
       <Head>
         <title>数据中心 | 销售助手</title>
-        <meta name="description" content="管理销售记录" />
+        <meta name="description" content="查看和管理销售数据" />
       </Head>
 
-      <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">数据中心</h1>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => router.push('/sales/data/new')}
-              style={{ display: 'flex', alignItems: 'center' }}
-            >
-              新增记录
-            </Button>
+      <div className={`py-4 md:py-6 ${isMobile ? 'px-3' : 'px-6'}`}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 md:gap-0">
+          <div>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>数据中心</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              查看和管理销售数据记录。
+            </p>
           </div>
-          <p className="mt-1 text-sm text-gray-500">
-            管理和查看营业销售数据。
-          </p>
+          {!isMobile && (
+            <div className="flex flex-wrap gap-2 self-end md:self-auto">
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => router.push('/sales/data/new')}
+                className="rounded-lg"
+                size="middle"
+              >
+                新增记录
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleRefresh}
+                loading={isRefreshing}
+                className="rounded-lg"
+                size="middle"
+              >
+                刷新
+              </Button>
+              <Button
+                icon={<SyncOutlined />}
+                onClick={handleSyncClick}
+                className="rounded-lg"
+                size="middle"
+              >
+                同步数据
+              </Button>
+            </div>
+          )}
+        </div>
 
-          {/* 筛选器 */}
-          <div className="bg-white p-3 sm:p-4 rounded-md shadow mb-4 mt-6">
-            <Form
-              form={form}
-              onFinish={handleFormSubmit}
-              layout="vertical"
-              className="flex flex-col sm:flex-row flex-wrap gap-3"
+        {/* 搜索表单 */}
+        <div className="bg-white p-4 rounded-xl shadow-md mb-4">
+          <Form
+            form={form}
+            layout={isMobile ? "vertical" : "inline"}
+            onFinish={handleFormSubmit}
+            className={`${isMobile ? 'space-y-3' : 'flex flex-wrap gap-3 items-end'}`}
+            size={isMobile ? "middle" : "middle"}
+          >
+            <Form.Item
+              name="org_id"
+              label="机构"
+              className={isMobile ? "w-full mb-0" : "mb-0"}
             >
-              <Form.Item 
-                name="dateRange" 
-                label="日期范围"
-                className="mb-0 sm:min-w-[240px]"
+              <Select 
+                placeholder="选择机构" 
+                allowClear 
+                showSearch
+                optionFilterProp="children"
+                className={isMobile ? "w-full" : "w-40"}
+                size={isMobile ? "middle" : "middle"}
               >
+                {orgGroups.map(group => (
+                  <OptGroup key={group.parent.org_id} label={group.parent.org_name}>
+                    {group.children.map(child => (
+                      <Option key={child.org_id} value={child.org_id}>{child.org_name}</Option>
+                    ))}
+                  </OptGroup>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item
+              name="dateRange"
+              label="日期范围"
+              className={isMobile ? "w-full mb-0" : "mb-0"}
+            >
+              {isMobile ? (
+                <div className="flex space-x-2">
+                  <DatePicker 
+                    className="flex-1"
+                    placeholder="开始日期"
+                    format="YYYY年MM月DD日"
+                    size="middle"
+                    onChange={handleStartDateChange}
+                    value={startDate}
+                    locale={zhCN.DatePicker}
+                    inputReadOnly={true}
+                    style={{ caretColor: 'transparent' }}
+                  />
+                  <span className="flex items-center text-gray-400">至</span>
+                  <DatePicker 
+                    className="flex-1"
+                    placeholder="结束日期"
+                    format="YYYY年MM月DD日"
+                    size="middle"
+                    onChange={handleEndDateChange}
+                    value={endDate}
+                    locale={zhCN.DatePicker}
+                    inputReadOnly={true}
+                    style={{ caretColor: 'transparent' }}
+                  />
+                </div>
+              ) : (
                 <RangePicker 
-                  format="YYYY-MM-DD"
-                  allowClear
+                  className="w-64"
+                  size="middle"
+                  placeholder={['开始日期', '结束日期']}
+                  format="YYYY年MM月DD日"
+                  locale={zhCN.DatePicker}
+                  inputReadOnly={true}
+                  style={{ caretColor: 'transparent' }}
                 />
-              </Form.Item>
-              
-              <Form.Item 
-                name="org_id" 
-                label="机构"
-                className="mb-0"
-              >
-                <Select
-                  placeholder="选择机构"
-                  allowClear
-                  style={{ width: '100%', minWidth: '200px' }}
-                >
-                  {orgGroups.map(group => (
-                    <OptGroup key={group.parent.org_id} label={group.parent.org_name}>
-                      {/* 仓库 */}
-                      {group.children.map(child => (
-                        <Option key={child.org_id} value={child.org_id}>
-                          {child.org_name}
-                        </Option>
-                      ))}
-                    </OptGroup>
-                  ))}
-                </Select>
-              </Form.Item>
-              
-              <div className="flex items-end gap-2 mt-2 sm:mt-0 mb-0">
+              )}
+            </Form.Item>
+            <Form.Item className={isMobile ? "w-full mb-0" : "mb-0"}>
+              <div className={isMobile ? "flex gap-2" : ""}>
                 <Button 
-                  type="primary"
+                  type="primary" 
                   htmlType="submit"
-                  disabled={isRefreshing}
+                  className="rounded-lg mr-2"
+                  size={isMobile ? "middle" : "middle"}
                 >
                   查询
                 </Button>
-                <Button
-                  onClick={() => {
-                    // 重置表单和分页
-                    form.resetFields();
-                    setCurrentPage(1);
-                    
-                    // 立即加载数据
-                    setIsRefreshing(true);
-                    setIsLoadingData(true);
-                    
-                    // 使用默认参数构建请求
-                    const params = { 
-                      skip: 0, 
-                      limit: pageSize 
-                    };
-                    
-                    // 直接调用API
-                    salesAPI.getSalesRecords(params)
-                      .then(response => {
-                        if (response.data.success) {
-                          const items = Array.isArray(response.data.data) ? response.data.data : [];
-                          const total = response.data.total || items.length;
-                          
-                          const recordsData: SalesRecordListResponse = {
-                            items,
-                            total,
-                            current: 1,
-                            pageSize
-                          };
-                          
-                          setSalesRecords(recordsData);
-                          setError(null);
-                        } else {
-                          setError('获取销售记录失败');
-                        }
-                      })
-                      .catch(err => {
-                        setError('获取销售记录失败，请稍后再试');
-                      })
-                      .finally(() => {
-                        setIsLoadingData(false);
-                        setIsRefreshing(false);
-                      });
-                  }}
+                <Button 
+                  onClick={handleReset}
+                  className="rounded-lg"
+                  size={isMobile ? "middle" : "middle"}
                 >
                   重置
                 </Button>
-                <div className="flex items-center">
-                  <Button
-                    disabled={isRefreshing}
-                    onClick={handleSyncClick}
-                    icon={<ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />}
-                    loading={isSyncing}
-                  >
-                    同步
-                  </Button>
-                  {mainPageSyncTipVisible && (
-                    <span className="text-xs text-gray-500 ml-2">预计3分钟左右完成同步</span>
-                  )}
-                </div>
               </div>
-            </Form>
-          </div>
+            </Form.Item>
+          </Form>
+        </div>
 
-          {/* 错误提示 */}
-          {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-              {error}
-            </div>
-          )}
+        {/* 错误提示 */}
+        {error && (
+          <Alert message={error} type="error" showIcon className="mb-4 rounded-lg" />
+        )}
 
-          {/* 销售记录表格 */}
-          <div className="mt-6">
-            <SalesDataTable 
-              data={salesRecords}
-              isLoading={isLoadingData}
-              className="bg-white shadow rounded-md"
-              onDelete={handleRefresh}
-              onChange={onTableChange}
+        {/* 同步提示 */}
+        {mainPageSyncTipVisible && (
+          <Alert
+            message="同步正在进行中"
+            description="正在从外部系统同步数据，这可能需要一些时间。您可以继续浏览或刷新页面查看最新结果。"
+            type="info"
+            showIcon
+            closable
+            onClose={() => setMainPageSyncTipVisible(false)}
+            className="mb-4 rounded-lg"
+          />
+        )}
+
+                 {/* 销售数据表格 */}
+         <div className="bg-white rounded-xl shadow-md overflow-hidden">
+           <SalesDataTable
+             data={salesRecords}
+             isLoading={isLoadingData}
+             onChange={onTableChange}
+             className="w-full"
+           />
+          <div className={`flex justify-end p-4 ${isMobile ? 'flex-wrap gap-2' : ''}`}>
+            <Pagination
+              current={currentPage}
+              pageSize={pageSize}
+              total={salesRecords?.total || 0}
+              onChange={handlePaginationChange}
+              showSizeChanger
+              showQuickJumper={!isMobile}
+              showTotal={(total) => `共 ${total} 条记录`}
+              size={isMobile ? "small" : "default"}
+              className={isMobile ? "w-full flex justify-center" : ""}
+              pageSizeOptions={isMobile ? ["10", "20", "50"] : ["10", "20", "50", "100"]}
+              defaultPageSize={isMobile ? 20 : 10}
             />
-            <div className="flex justify-end mt-4">
-              <Pagination
-                current={currentPage}
-                pageSize={pageSize}
-                total={salesRecords?.total || 0}
-                showSizeChanger
-                pageSizeOptions={["10", "20", "50", "100"]}
-                onChange={handlePaginationChange}
-                showTotal={total => `共 ${total} 条`}
-              />
-            </div>
           </div>
         </div>
-      </ConfigProvider>
+
+        {/* 移动端浮动按钮 */}
+        {isMobile && (
+          <>
+            <FloatButton.Group
+              trigger="click"
+              type="primary"
+              style={{ right: 24 }}
+              icon={<PlusOutlined />}
+            >
+              <FloatButton
+                icon={<PlusOutlined />}
+                tooltip="新增记录"
+                onClick={() => router.push('/sales/data/new')}
+              />
+              <FloatButton
+                icon={<SyncOutlined />}
+                tooltip="同步数据"
+                onClick={handleSyncClick}
+              />
+            </FloatButton.Group>
+          </>
+        )}
+      </div>
 
       {/* 同步数据对话框 */}
       <Modal
@@ -756,7 +849,8 @@ const SalesDataPage: React.FC = () => {
         open={syncModalVisible}
         onCancel={() => setSyncModalVisible(false)}
         footer={null}
-        destroyOnClose
+        width={isMobile ? "90%" : 520}
+        className="rounded-lg"
       >
         <Form
           form={syncForm}
@@ -766,12 +860,13 @@ const SalesDataPage: React.FC = () => {
           <Form.Item
             name="date"
             label="选择日期"
-            rules={[{ required: true, message: '请选择需要同步的日期' }]}
+            rules={[{ required: true, message: '请选择日期' }]}
           >
             <DatePicker 
               style={{ width: '100%' }} 
               format="YYYY-MM-DD"
               placeholder="选择日期"
+              className="rounded-lg"
             />
           </Form.Item>
           
@@ -782,8 +877,9 @@ const SalesDataPage: React.FC = () => {
             initialValue="all"
           >
             <Select 
-              placeholder="选择平台"
+              placeholder="选择平台" 
               onChange={handlePlatformChange}
+              className="rounded-lg"
             >
               <Option value="all">所有平台</Option>
               <Option value="duowei">多维</Option>
@@ -791,63 +887,86 @@ const SalesDataPage: React.FC = () => {
             </Select>
           </Form.Item>
           
-          <div className="flex justify-end gap-2 mt-4">
-            <Button onClick={() => setSyncModalVisible(false)}>
+          {syncTipVisible && (
+            <Alert
+              message="同步提示"
+              description="同步美团数据可能需要短信验证码，请确保您的手机可以接收验证码。"
+              type="info"
+              showIcon
+              className="mb-4 rounded-lg"
+            />
+          )}
+          
+          <div className="flex justify-end gap-2 mt-6">
+            <Button 
+              onClick={() => setSyncModalVisible(false)}
+              className="rounded-lg"
+            >
               取消
             </Button>
-            <Button type="primary" htmlType="submit">
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              loading={isSyncing}
+              className="rounded-lg"
+            >
               开始同步
             </Button>
           </div>
         </Form>
       </Modal>
-      
-      {/* 验证码输入对话框 */}
+
+      {/* 验证码对话框 */}
       <Modal
+        title="验证码确认"
         open={verificationModalVisible}
         onCancel={() => {
-          if (!isSubmittingCode) { // 如果不在提交中才允许关闭
+          if (!countDownActive) {
             setVerificationModalVisible(false);
-            if (countDownRef.current) {
-              clearInterval(countDownRef.current);
-            }
+            closeWebSocket();
           }
         }}
         footer={null}
-        closable={!isSubmittingCode}
+        width={isMobile ? "90%" : 420}
         maskClosable={false}
-        destroyOnClose
-        centered
-        width={400}
-        bodyStyle={{ padding: '24px' }}
+        className="rounded-lg"
       >
-        <div className="text-center mb-6">
-          <p className="text-base font-medium">验证码已发送至{phoneNumber}({countDown})</p>
+        <div className="text-center mb-4">
+          <p className="mb-2">请输入发送到 <strong>{phoneNumber}</strong> 的验证码</p>
+          <p className="text-sm text-gray-500">
+            {countDownActive 
+              ? `验证码将在 ${countDown} 秒后自动提交` 
+              : '验证码已提交，请等待处理结果'}
+          </p>
         </div>
         
-        <div className="flex justify-center gap-2 mb-4">
-          {Array(6).fill(0).map((_, index) => (
-            <input
+        <div className="flex justify-center gap-2 mb-6">
+          {verificationCode.map((digit, index) => (
+            <Input
               key={index}
-              ref={el => verificationInputRefs.current[index] = el}
-              type="text"
-              maxLength={1}
-              className={`w-12 h-12 text-center text-lg font-medium rounded border ${
-                verificationCode[index] ? 'border-blue-500' : 'border-gray-300'
-              } focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500`}
-              value={verificationCode[index]}
+              ref={(el) => verificationInputRefs.current[index] = el}
+              value={digit}
               onChange={(e) => handleVerificationInputChange(index, e.target.value)}
               onKeyDown={(e) => handleVerificationKeyDown(index, e)}
-              disabled={isSubmittingCode}
+              className="w-10 h-12 text-center text-xl rounded-lg"
+              maxLength={1}
+              autoFocus={index === 0}
+              disabled={isSubmittingCode || !countDownActive}
             />
           ))}
         </div>
         
-        {isSubmittingCode && (
-          <div className="text-center text-sm text-gray-500">
-            <Spin size="small" /> 验证中...
-          </div>
-        )}
+        <div className="flex justify-center">
+          <Button 
+            type="primary" 
+            onClick={() => handleVerificationSubmit(verificationCode.join(''))}
+            loading={isSubmittingCode}
+            disabled={verificationCode.some(digit => !digit) || !countDownActive}
+            className="rounded-lg w-full"
+          >
+            提交验证码
+          </Button>
+        </div>
       </Modal>
     </Layout>
   );

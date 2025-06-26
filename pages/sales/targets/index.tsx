@@ -3,7 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
-import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin, Modal, message, Button } from 'antd';
+import { Select, DatePicker, ConfigProvider, Table, Progress, Pagination, Spin, Modal, message, Button, Space, Popconfirm, Alert, Card, Tag, Empty, Tooltip, FloatButton } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { MonthlySalesTarget, OrgListItem } from '@/types/api';
-import { ExclamationCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { ExclamationCircleOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, BarChartOutlined, AimOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -29,6 +29,28 @@ interface EnhancedMonthlySalesTarget extends MonthlySalesTarget {
   per_car_income?: number;
 }
 
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
+
 const SalesTargetsPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -43,6 +65,7 @@ const SalesTargetsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+  const isMobile = useIsMobile();
 
   const { confirm } = Modal;
 
@@ -351,26 +374,52 @@ const SalesTargetsPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">目标管理</h1>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => router.push('/sales/targets/new')}
-              style={{ display: 'flex', alignItems: 'center' }}
-            >
-              新增目标
-            </Button>
+        <div className={`py-4 md:py-6 ${isMobile ? 'px-3' : 'px-6'}`}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 md:gap-0">
+            <div>
+              <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>目标管理</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                管理销售目标和业绩指标。
+              </p>
+            </div>
+            {!isMobile && (
+              <div className="flex flex-wrap gap-2 self-end md:self-auto">
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={() => router.push('/sales/targets/new')}
+                  className="rounded-lg"
+                  size="middle"
+                >
+                  新增
+                </Button>
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  onClick={handleRefresh}
+                  loading={isRefreshing}
+                  className="rounded-lg"
+                  size="middle"
+                >
+                  刷新
+                </Button>
+                <Tooltip title="查看图表">
+                  <Button 
+                    icon={<BarChartOutlined />} 
+                    onClick={() => router.push('/sales/charts')}
+                    className="rounded-lg"
+                    size="middle"
+                  >
+                    查看图表
+                  </Button>
+                </Tooltip>
+              </div>
+            )}
           </div>
-          <p className="mt-1 text-sm text-gray-500">
-            管理销售目标和业绩指标。
-          </p>
 
           {/* 筛选器 */}
-          <div className="bg-white p-3 sm:p-4 rounded-md shadow mb-4 mt-6">
-            <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-end gap-3 sm:gap-4">
-              <div className="w-full sm:w-auto">
+          <div className="bg-white p-4 rounded-xl shadow-md mb-4">
+            <div className="flex flex-col md:flex-row flex-wrap items-start md:items-end gap-3 md:gap-4">
+              <div className="w-full md:w-auto">
                 <label className="block text-sm font-medium text-gray-700 mb-1">年月:</label>
                 <DatePicker 
                   picker="month" 
@@ -381,7 +430,7 @@ const SalesTargetsPage: React.FC = () => {
                   format="YYYY年MM月"
                 />
               </div>
-              <div className="w-full sm:w-auto">
+              <div className="w-full md:w-auto">
                 <label className="block text-sm font-medium text-gray-700 mb-1">机构:</label>
                 <Select
                   value={selectedOrgId}
@@ -403,7 +452,7 @@ const SalesTargetsPage: React.FC = () => {
                   ))}
                 </Select>
               </div>
-              <div className="flex gap-2 mt-2 sm:mt-0">
+              <div className="flex gap-2 mt-2 md:mt-0">
                 <Button
                   type="primary"
                   onClick={handleRefresh}
@@ -411,102 +460,213 @@ const SalesTargetsPage: React.FC = () => {
                 >
                   查询
                 </Button>
-                <Button
-                  onClick={() => {
-                    // 重置为当前年月
-                    const now = new Date();
-                    const currentYear = now.getFullYear();
-                    const currentMonth = now.getMonth() + 1;
-                    
-                    // 先更新状态
-                    setYear(currentYear);
-                    setMonth(currentMonth);
-                    setSelectedOrgId('');
-                    
-                    // 直接使用新值调用加载数据函数，而不是依赖状态更新
-                    setIsRefreshing(true);
-                    setIsLoadingData(true);
-                    
-                    // 使用新的值构建参数
-                    const params = { 
-                      year: currentYear, 
-                      month: currentMonth, 
-                      skip: (currentPage - 1) * pageSize, 
-                      limit: pageSize 
-                    };
-                    
-                    // 直接调用API
-                    salesAPI.getSalesTargets(params)
-                      .then(response => {
-                        if (response.data.success && response.data.data) {
-                          setTargets(response.data.data.items || response.data.data);
-                          setTotal(response.data.data.total || (response.data.data.length || 0));
-                          setError(null);
-                        } else {
-                          setError('获取目标失败');
-                        }
-                      })
-                      .catch(err => {
-                        setError('获取目标失败，请稍后再试');
-                      })
-                      .finally(() => {
-                        setIsLoadingData(false);
-                        setIsRefreshing(false);
-                      });
-                  }}
-                >
-                  重置
-                </Button>
               </div>
             </div>
           </div>
 
           {/* 错误提示 */}
           {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-              {error}
-            </div>
+            <Alert message={error} type="error" showIcon className="mb-4 rounded-lg" />
           )}
 
           {/* 目标列表 */}
           <div className="mt-6">
-            <Table 
-              columns={columns}
-              dataSource={targets}
-              rowKey="id"
-              loading={isLoadingData}
-              pagination={false}
-              className="bg-white shadow rounded-md"
-              locale={{
-                emptyText: (
-                  <div className="p-8 text-center text-gray-500">
-                    <p className="mb-4">暂无目标数据</p>
-                    <button
-                      onClick={() => router.push('/sales/targets/new')}
-                      className="btn btn-outline"
-                    >
-                      <PlusIcon className="h-5 w-5 mr-2" />
-                      添加目标
-                    </button>
+            {isMobile ? (
+              <div className="bg-gray-50 rounded-none pt-3 px-1">
+                {isLoadingData ? (
+                  <div className="flex justify-center items-center py-16">
+                    <Spin size="default" tip="载入中..." />
                   </div>
-                )
-              }}
-            />
-            <div className="flex justify-end mt-4">
-              <Pagination
-                current={currentPage}
-                pageSize={pageSize}
-                total={total}
-                showSizeChanger
-                pageSizeOptions={["10", "20", "50", "100"]}
-                onChange={(page, size) => {
-                  setCurrentPage(page);
-                  setPageSize(size);
-                }}
-                showTotal={total => `共 ${total} 条`}
-              />
-            </div>
+                                 ) : targets.length > 0 ? (
+                   targets.map(item => {
+                     // 使用正确的属性名：target_income 和 actual_income
+                     const targetIncome = item.target_income || 0;
+                     const actualIncome = item.actual_income || 0;
+                     const completion = targetIncome > 0 
+                       ? (actualIncome / targetIncome * 100).toFixed(2) 
+                       : '0.00';
+                     
+                     let statusColor = '';
+                     let statusBg = '';
+                     let statusIcon = null;
+                     let progressColor = '';
+                     
+                     // 5个颜色级别，每20%一个颜色
+                     const completionValue = parseFloat(completion);
+                     if (completionValue >= 80) {
+                       statusColor = 'text-green-600';
+                       statusBg = 'bg-green-50';
+                       statusIcon = <CheckCircleOutlined className="text-green-500" />;
+                       progressColor = '#52c41a'; // 绿色 (80%-100%+)
+                     } else if (completionValue >= 60) {
+                       statusColor = 'text-blue-600';
+                       statusBg = 'bg-blue-50';
+                       statusIcon = <ExclamationCircleOutlined className="text-blue-500" />;
+                       progressColor = '#1890ff'; // 蓝色 (60%-79%)
+                     } else if (completionValue >= 40) {
+                       statusColor = 'text-amber-600';
+                       statusBg = 'bg-amber-50';
+                       statusIcon = <ExclamationCircleOutlined className="text-amber-500" />;
+                       progressColor = '#faad14'; // 黄色 (40%-59%)
+                     } else if (completionValue >= 20) {
+                       statusColor = 'text-red-600';
+                       statusBg = 'bg-red-50';
+                       statusIcon = <CloseCircleOutlined className="text-red-500" />;
+                       progressColor = '#f5222d'; // 红色 (20%-39%)
+                     } else {
+                       statusColor = 'text-gray-600';
+                       statusBg = 'bg-gray-50';
+                       statusIcon = <CloseCircleOutlined className="text-gray-500" />;
+                       progressColor = '#d9d9d9'; // 灰色 (0%-19%)
+                     }
+                     
+                     return (
+                       <Card 
+                         key={item.id} 
+                         className="mb-3 rounded-xl shadow-md overflow-hidden"
+                         bodyStyle={{ padding: 0 }}
+                       >
+                         <div className={`px-4 py-3 flex justify-between items-center ${statusBg}`}>
+                           <div className="flex items-center">
+                             <AimOutlined className="mr-2" />
+                             <span className="font-medium">{`${item.year}年${item.month}月`}</span>
+                           </div>
+                           <div className="flex items-center">
+                                                          <Progress 
+                                type="circle" 
+                                percent={Number(parseFloat(completion || "0"))} 
+                                size={36} 
+                                strokeColor={progressColor}
+                                strokeWidth={10}
+                                format={(percent) => percent ? `${Math.round(percent)}%` : '0%'}
+                              />
+                           </div>
+                         </div>
+                         
+                         <div className="p-4">
+                           <div className="mb-3">
+                             <div className="text-gray-500 text-xs">机构</div>
+                             <div className="font-medium">{getOrgName(item.org_id)}</div>
+                           </div>
+                           
+                           <div className="grid grid-cols-2 gap-3 mb-4">
+                             <div>
+                               <div className="text-gray-500 text-xs">销售目标</div>
+                               <div className="font-medium">¥{targetIncome.toLocaleString()}</div>
+                             </div>
+                             <div>
+                               <div className="text-gray-500 text-xs">实际销售</div>
+                               <div className="font-medium">¥{Math.floor(actualIncome).toLocaleString()}</div>
+                             </div>
+                           </div>
+                           
+                           <div className="flex justify-end border-t border-gray-100 pt-3">
+                             <Space>
+                               <Button 
+                                 type="text"
+                                 icon={<EditOutlined />}
+                                 onClick={() => router.push(`/sales/targets/edit/${item.id}`)}
+                                 className="text-blue-500"
+                               >
+                                 编辑
+                               </Button>
+                                                                <Popconfirm
+                                 title="确定要删除此销售目标吗？"
+                                 onConfirm={() => item.id && handleDelete(item.id)}
+                                 okText="确定"
+                                 cancelText="取消"
+                               >
+                                 <Button 
+                                   type="text" 
+                                   danger 
+                                   icon={<DeleteOutlined />}
+                                 >
+                                   删除
+                                 </Button>
+                               </Popconfirm>
+                             </Space>
+                           </div>
+                         </div>
+                       </Card>
+                     );
+                   })
+                 ) : (
+                  <Empty
+                    className="my-8" 
+                    description="暂无销售目标数据"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )}
+                
+                <div className="flex justify-center mt-4 mb-2">
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={targets.length}
+                    onChange={(page) => {
+                      setCurrentPage(page);
+                      setPageSize(pageSize);
+                    }}
+                    size="small"
+                    simple
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <Table
+                  columns={columns}
+                  dataSource={targets}
+                  rowKey="id"
+                  loading={isLoadingData}
+                  pagination={false}
+                  className="w-full"
+                />
+                <div className="flex justify-end p-4">
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={targets.length}
+                    onChange={(page) => {
+                      setCurrentPage(page);
+                      setPageSize(pageSize);
+                    }}
+                    showSizeChanger
+                    showQuickJumper
+                    showTotal={(total) => `共 ${total} 条记录`}
+                  />
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* 移动端浮动按钮 */}
+          {isMobile && (
+            <>
+              <FloatButton.Group
+                trigger="click"
+                type="primary"
+                style={{ right: 24 }}
+                icon={<PlusOutlined />}
+              >
+                <FloatButton
+                  icon={<PlusOutlined />}
+                  tooltip="新增目标"
+                  onClick={() => router.push('/sales/targets/new')}
+                />
+                <FloatButton
+                  icon={<ReloadOutlined />}
+                  tooltip="刷新"
+                  onClick={handleRefresh}
+                />
+                <FloatButton
+                  icon={<BarChartOutlined />}
+                  tooltip="查看图表"
+                  onClick={() => router.push('/sales/charts')}
+                />
+              </FloatButton.Group>
+            </>
+          )}
         </div>
       </ConfigProvider>
     </Layout>
