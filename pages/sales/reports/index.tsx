@@ -44,11 +44,16 @@ const SalesReportsPage: React.FC = () => {
         });
         
         if (response.data.success && response.data.data) {
-          // 修复：正确解析返回的URL字段
-          const url = response.data.data.files?.img_url || 
-                     response.data.data.files?.pdf_url || 
-                     response.data.data.files?.excel_url ||
-                     response.data.data.url;  // 兼容旧格式
+          const originalUrl = response.data.data.files?.img_url || 
+                 response.data.data.files?.pdf_url || 
+                 response.data.data.files?.excel_url ||
+                 response.data.data.url;  // 兼容旧格式
+
+          // 替换URL前缀
+          const url = originalUrl?.replace(
+            "https://pichub.8008893.workers.dev",
+            "https://ssg-api.800087.xyz"
+          );
                      
           if (url) {
             setExportedUrl(url);
