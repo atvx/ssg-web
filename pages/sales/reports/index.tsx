@@ -67,16 +67,10 @@ const SalesReportsPage: React.FC = () => {
         });
         
         if (response.data.success && response.data.data) {
-          const originalUrl = response.data.data.files?.img_url || 
-                 response.data.data.files?.pdf_url || 
-                 response.data.data.files?.excel_url ||
-                 response.data.data.url;  // 兼容旧格式
-
-          // 替换URL前缀
-          const url = originalUrl?.replace(
-            "https://pichub.8008893.workers.dev",
-            "https://ssg-api.800087.xyz"
-          );
+          const url = response.data.data.files?.img_url || 
+                     response.data.data.files?.pdf_url || 
+                     response.data.data.files?.excel_url ||
+                     response.data.data.url;
                      
           if (url) {
             setExportedUrl(url);
