@@ -22,6 +22,15 @@ const exportApiClient = axios.create({
   },
 });
 
+// 创建用于数据同步的特殊axios实例（超长超时时间）
+const syncApiClient = axios.create({
+  baseURL: API_URL,
+  timeout: 360000, // 6分钟超时，用于数据同步
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // 请求拦截器，添加token到请求头
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -96,6 +105,36 @@ exportApiClient.interceptors.response.use(
   }
 );
 
+// 为数据同步API客户端也添加拦截器
+syncApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = Cookies.get('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: AxiosError) => {
+    return Promise.reject(error);
+  }
+);
+
+syncApiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response;
+  },
+  (error: AxiosError) => {
+    // 处理401未授权错误
+    if (error.response && error.response.status === 401) {
+      Cookies.remove('token');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // 认证相关API
 export const authAPI = {
   // 用户注册
@@ -138,7 +177,9 @@ export const authAPI = {
 export const salesAPI = {
   // 获取销售数据
   fetchData: (params?: { date?: string; platform?: string; user_id?: number; sync?: boolean }) => {
-    return apiClient.get<APIResponse>('/api/sales/fetch', { params });
+    // 如果是同步请求，使用专门的长超时客户端
+    const client = params?.sync ? syncApiClient : apiClient;
+    return client.get<APIResponse>('/api/sales/fetch', { params });
   },
   
   // 获取销售目标列表

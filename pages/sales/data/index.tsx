@@ -129,8 +129,7 @@ const SalesDataPage: React.FC = () => {
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [syncForm] = Form.useForm();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncTipVisible, setSyncTipVisible] = useState(false);
-  const [mainPageSyncTipVisible, setMainPageSyncTipVisible] = useState(false);
+
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -278,18 +277,6 @@ const SalesDataPage: React.FC = () => {
     });
     // 显示同步对话框
     setSyncModalVisible(true);
-    // 默认为all平台，所以设置提示为可见
-    setSyncTipVisible(true);
-  };
-
-  // 平台选择
-  const handlePlatformChange = (value: string) => {
-    if (value === 'all' || value === 'meituan') {
-      // 平台为"所有平台"或"美团"时显示提示信息
-      setSyncTipVisible(true);
-    } else {
-      setSyncTipVisible(false);
-    }
   };
 
   // 连接WebSocket
@@ -439,33 +426,27 @@ const SalesDataPage: React.FC = () => {
         params.platform = values.platform;
       }
       
-      // 如果平台是美团或所有平台，连接WebSocket并显示主页面提示
+      // 如果平台是美团或所有平台，连接WebSocket
       if (values.platform === 'meituan' || values.platform === 'all') {
         connectWebSocket();
-        setMainPageSyncTipVisible(true);
-      } else {
-        setMainPageSyncTipVisible(false);
       }
       
       // 调用同步API
       const response = await salesAPI.fetchData(params);
       
       if (response.data.success) {
-        // 延迟几秒后刷新数据
-        setTimeout(() => {
-          handleRefresh();
-          setIsSyncing(false); // 完成后重置同步状态
-          setMainPageSyncTipVisible(false); // 隐藏提示消息
-        }, 3000);
+        // 同步请求发送成功，提示用户等待
+        message.success('数据同步已完成');
+        setIsSyncing(false);
+        // 同步完成后自动刷新页面数据
+        handleRefresh();
       } else {
         message.error(response.data.message || '同步失败');
         setIsSyncing(false);
-        setMainPageSyncTipVisible(false); // 失败时也隐藏提示消息
       }
     } catch (error) {
       message.error('同步请求失败，请稍后再试');
       setIsSyncing(false);
-      setMainPageSyncTipVisible(false); // 出错时隐藏提示消息
     }
   };
   
@@ -687,24 +668,17 @@ const SalesDataPage: React.FC = () => {
                 className="rounded-lg"
                 size="middle"
               >
-                新增记录
-              </Button>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={handleRefresh}
-                loading={isRefreshing}
-                className="rounded-lg"
-                size="middle"
-              >
-                刷新
+                新增
               </Button>
               <Button
                 icon={<SyncOutlined />}
                 onClick={handleSyncClick}
                 className="rounded-lg"
                 size="middle"
+                loading={isSyncing}
+                disabled={isSyncing}
               >
-                同步数据
+                {isSyncing ? '正在同步' : '同步'}
               </Button>
             </div>
           )}
@@ -811,27 +785,14 @@ const SalesDataPage: React.FC = () => {
           <Alert message={error} type="error" showIcon className="mb-4 rounded-lg" />
         )}
 
-        {/* 同步提示 */}
-        {mainPageSyncTipVisible && (
-          <Alert
-            message="同步正在进行中"
-            description="正在从外部系统同步数据，这可能需要一些时间。您可以继续浏览或刷新页面查看最新结果。"
-            type="info"
-            showIcon
-            closable
-            onClose={() => setMainPageSyncTipVisible(false)}
-            className="mb-4 rounded-lg"
+        {/* 销售数据表格 */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <SalesDataTable
+            data={salesRecords}
+            isLoading={isLoadingData}
+            onChange={onTableChange}
+            className="w-full"
           />
-        )}
-
-                 {/* 销售数据表格 */}
-         <div className="bg-white rounded-xl shadow-md overflow-hidden">
-           <SalesDataTable
-             data={salesRecords}
-             isLoading={isLoadingData}
-             onChange={onTableChange}
-             className="w-full"
-           />
           <div className={`flex justify-end p-4 ${isMobile ? 'flex-wrap gap-2' : ''}`}>
             <Pagination
               current={currentPage}
@@ -864,9 +825,9 @@ const SalesDataPage: React.FC = () => {
                 onClick={() => router.push('/sales/data/new')}
               />
               <FloatButton
-                icon={<SyncOutlined />}
-                tooltip="同步数据"
-                onClick={handleSyncClick}
+                icon={isSyncing ? <SyncOutlined spin /> : <SyncOutlined />}
+                tooltip={isSyncing ? '正在同步数据' : '同步数据'}
+                onClick={() => !isSyncing && handleSyncClick()}
               />
             </FloatButton.Group>
           </>
@@ -908,7 +869,6 @@ const SalesDataPage: React.FC = () => {
           >
             <Select 
               placeholder="选择平台" 
-              onChange={handlePlatformChange}
               className="rounded-lg"
             >
               <Option value="all">所有平台</Option>
@@ -916,16 +876,6 @@ const SalesDataPage: React.FC = () => {
               <Option value="meituan">美团</Option>
             </Select>
           </Form.Item>
-          
-          {syncTipVisible && (
-            <Alert
-              message="同步提示"
-              description="同步美团数据可能需要短信验证码，请确保您的手机可以接收验证码。"
-              type="info"
-              showIcon
-              className="mb-4 rounded-lg"
-            />
-          )}
           
           <div className="flex justify-end gap-2 mt-6">
             <Button 
@@ -1015,4 +965,4 @@ const SalesDataPage: React.FC = () => {
   );
 };
 
-export default SalesDataPage; 
+export default SalesDataPage;
