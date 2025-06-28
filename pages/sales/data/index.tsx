@@ -122,7 +122,6 @@ const SalesDataPage: React.FC = () => {
   const [countDown, setCountDown] = useState(60);
   const [countDownActive, setCountDownActive] = useState(false);
   const countDownRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
   const verificationInputRefs = useRef<any[]>([]);
   const [phoneNumber, setPhoneNumber] = useState('未知手机号');
   
@@ -336,7 +335,6 @@ const SalesDataPage: React.FC = () => {
           
           setVerificationModalVisible(true);
           setVerificationCode(['', '', '', '', '', '']); // 重置验证码输入
-          setIsSubmittingCode(false); // 重置提交状态
           
           // 初始化引用数组
           verificationInputRefs.current = Array(6).fill(null);
@@ -376,7 +374,6 @@ const SalesDataPage: React.FC = () => {
           // 这里可以作为备用处理，但通常不会执行到
           if (verificationModalVisible) {
             setVerificationModalVisible(false);
-            setIsSubmittingCode(false);
             
             if (countDownRef.current) {
               clearInterval(countDownRef.current);
@@ -474,8 +471,8 @@ const SalesDataPage: React.FC = () => {
   
   // 处理验证码输入变化
   const handleVerificationInputChange = (index: number, value: string) => {
-    // 如果正在提交验证码或倒计时已结束，不允许输入
-    if (isSubmittingCode || !countDownActive) {
+    // 如果倒计时已结束，不允许输入
+    if (!countDownActive) {
       return;
     }
     
@@ -496,9 +493,28 @@ const SalesDataPage: React.FC = () => {
       }
     }
     
-    // 检查是否所有输入框都已填写，如果是则自动提交
+    // 检查是否所有输入框都已填写，如果是则立即关闭对话框并在后台提交
     if (newCode.every(c => c) && newCode.length === 6) {
-      handleVerificationSubmit(newCode.join(''));
+      // 立即关闭对话框
+      setVerificationModalVisible(false);
+      
+      // 清理验证码相关状态
+      setVerificationCode(['', '', '', '', '', '']);
+      const taskId = verificationTaskId; // 保存任务ID用于后台提交
+      setVerificationTaskId('');
+      setVerificationMessage('');
+      
+      // 清理倒计时
+      if (countDownRef.current) {
+        clearInterval(countDownRef.current);
+        setCountDownActive(false);
+      }
+      
+      // 关闭WebSocket连接
+      closeWebSocket();
+      
+      // 在后台提交验证码（不阻塞UI）
+      handleVerificationSubmit(newCode.join(''), taskId);
     }
   };
   
@@ -514,57 +530,25 @@ const SalesDataPage: React.FC = () => {
   };
 
   // 处理验证码提交
-  const handleVerificationSubmit = async (code: string) => {
-    if (!verificationTaskId || !code || code.length !== 6) {
+  const handleVerificationSubmit = async (code: string, taskId: string) => {
+    if (!taskId || !code || code.length !== 6) {
       return;
     }
     
     try {
-      setIsSubmittingCode(true); // 设置验证码提交状态为loading
-      
       // 直接使用apiClient提交验证码，不使用authAPI，避免全局消息
-      const response = await apiClient.post(`/api/auth/verification/${verificationTaskId}/submit`, { code });
+      const response = await apiClient.post(`/api/auth/verification/${taskId}/submit`, { code });
       
       if (response.data.success) {
-        // 验证码提交成功，自动关闭对话框
-        setVerificationModalVisible(false);
-        setIsSubmittingCode(false);
-        
-        // 清理验证码相关状态
-        setVerificationCode(['', '', '', '', '', '']);
-        setVerificationTaskId('');
-        setVerificationMessage('');
-        
-        // 清理倒计时
-        if (countDownRef.current) {
-          clearInterval(countDownRef.current);
-          setCountDownActive(false);
-        }
-        
-        // 关闭WebSocket连接
-        closeWebSocket();
-        
         // 显示成功提示
         message.success('验证码验证成功');
       } else {
-        setIsSubmittingCode(false); // 如果提交失败，重置状态
-        message.error('验证码错误，请重新输入');
-        // 清空验证码输入，让用户重新输入
-        setVerificationCode(['', '', '', '', '', '']);
-        // 重新聚焦到第一个输入框
-        if (verificationInputRefs.current[0]) {
-          verificationInputRefs.current[0].focus();
-        }
+        // 验证失败提示
+        message.error('验证码错误');
       }
     } catch (error) {
-      setIsSubmittingCode(false); // 如果出现异常，重置状态
-      message.error('验证码提交失败，请重试');
-      // 清空验证码输入
-      setVerificationCode(['', '', '', '', '', '']);
-      // 重新聚焦到第一个输入框
-      if (verificationInputRefs.current[0]) {
-        verificationInputRefs.current[0].focus();
-      }
+      // 提交失败提示
+      message.error('验证码提交失败');
     }
   };
 
@@ -974,7 +958,6 @@ const SalesDataPage: React.FC = () => {
           setVerificationCode(['', '', '', '', '', '']);
           setVerificationTaskId('');
           setVerificationMessage('');
-          setIsSubmittingCode(false);
           
           // 清理倒计时
           if (countDownRef.current) {
@@ -993,13 +976,8 @@ const SalesDataPage: React.FC = () => {
       >
         <div className="text-center mb-4">
           <p className="mb-2">请输入发送到 <strong>{phoneNumber}</strong> 的验证码</p>
-          <p className="text-sm text-gray-500">
-            {isSubmittingCode 
-              ? '正在验证验证码...'
-              : countDownActive 
-              ? `输入完成后将自动提交，${countDown} 秒后自动关闭`
-              : '验证码已过期'
-            }
+          <p className="text-sm text-gray-500 hidden">
+            输入完成后将自动提交，{countDown} 秒后自动关闭
           </p>
         </div>
         
@@ -1014,7 +992,7 @@ const SalesDataPage: React.FC = () => {
               className="w-10 h-12 text-center text-xl rounded-lg"
               maxLength={1}
               autoFocus={index === 0}
-              disabled={isSubmittingCode || !countDownActive}
+              disabled={!countDownActive}
             />
           ))}
         </div>
@@ -1027,7 +1005,7 @@ const SalesDataPage: React.FC = () => {
                 <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
               </div>
               <p className="text-sm">
-                倒计时 <span className="font-mono text-lg font-semibold">{countDown}</span> 秒
+                倒计时 <span className="font-mono text-lg font-semibold">{countDown}</span> 秒后，自动关闭
               </p>
             </div>
           )}
