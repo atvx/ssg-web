@@ -44,6 +44,8 @@ const SalesReportsPage: React.FC = () => {
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
   const [selectedFileType, setSelectedFileType] = useState<FileType>('png');
   const [messageApi, contextHolder] = message.useMessage();
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   const isMobile = useIsMobile();
 
   // 如果用户未登录，重定向到登录页
@@ -54,12 +56,20 @@ const SalesReportsPage: React.FC = () => {
   }, [isAuthenticated, isLoading, router]);
 
   // 导出报表
-  const handleExport = async (fileType: FileType) => {
+  const handleExport = async (fileType: FileType, isRetry: boolean = false) => {
     if (isAuthenticated) {
       try {
         setIsExporting(true);
         setError(null);
         setExportedUrl(null);
+        
+        if (isRetry) {
+          setIsRetrying(true);
+          messageApi.loading('正在重试导出报表...', 2);
+        } else {
+          messageApi.loading('正在生成报表，请稍候...', 2);
+          setRetryCount(0);
+        }
         
         const response = await salesAPI.exportDailyReport({ 
           date,
@@ -74,20 +84,64 @@ const SalesReportsPage: React.FC = () => {
                      
           if (url) {
             setExportedUrl(url);
-            messageApi.success('导出报表成功');
+            messageApi.success(`${fileType.toUpperCase()}报表导出成功！`);
+            setRetryCount(0);
           } else {
             setError('导出报表成功，但未找到下载链接');
             messageApi.warning('导出报表成功，但未找到下载链接');
           }
         } else {
-          setError('导出报表失败');
-          messageApi.error('导出报表失败');
+          const errorMsg = response.data.message || '导出报表失败';
+          setError(errorMsg);
+          messageApi.error(errorMsg);
         }
-      } catch (err) {
-        setError('导出报表失败，请稍后再试');
-        messageApi.error('导出报表失败，请稍后再试');
+      } catch (err: any) {
+        console.error('导出报表错误:', err);
+        
+        let errorMessage = '导出报表失败，请稍后再试';
+        let canRetry = true;
+        
+        // 根据错误类型提供更具体的信息
+        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+          errorMessage = `服务器处理超时，${fileType.toUpperCase()}文件生成可能需要更长时间，请稍后重试`;
+        } else if (err.response) {
+          const status = err.response.status;
+          const responseData = err.response.data;
+          
+          switch (status) {
+            case 504:
+              errorMessage = `网关超时(504)，${fileType.toUpperCase()}文件生成时间较长，请稍后重试`;
+              break;
+            case 503:
+              errorMessage = '服务暂时不可用(503)，请稍后重试';
+              break;
+            case 500:
+              errorMessage = '服务器内部错误(500)，请联系管理员或稍后重试';
+              break;
+            case 422:
+              errorMessage = responseData?.message || '请求参数错误，请检查日期格式';
+              canRetry = false;
+              break;
+            case 401:
+              errorMessage = '登录已过期，请重新登录';
+              canRetry = false;
+              break;
+            default:
+              errorMessage = responseData?.message || `请求失败(${status})，请稍后重试`;
+          }
+        } else if (err.request) {
+          errorMessage = '网络连接失败，请检查网络连接后重试';
+        }
+        
+        setError(errorMessage);
+        messageApi.error(errorMessage);
+        
+        if (canRetry && !isRetry) {
+          setRetryCount(prev => prev + 1);
+        }
       } finally {
         setIsExporting(false);
+        setIsRetrying(false);
       }
     }
   };
@@ -112,6 +166,11 @@ const SalesReportsPage: React.FC = () => {
 
   const handleFileTypeChange = (fileType: FileType) => {
     setSelectedFileType(fileType);
+  };
+
+  // 重试导出
+  const handleRetry = () => {
+    handleExport(selectedFileType, true);
   };
 
   if (isLoading) {
@@ -225,6 +284,16 @@ const SalesReportsPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* 格式说明 */}
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-2">格式说明：</p>
+                <div className="space-y-1 text-xs text-gray-500">
+                  <div>• <span className="font-medium text-green-600">Excel</span>：完整数据表格，支持进一步编辑分析（生成时间较长）</div>
+                  <div>• <span className="font-medium text-red-600">PDF</span>：适合打印和分享的正式报表文档</div>
+                  <div>• <span className="font-medium text-blue-600">图片</span>：快速预览，便于分享和查看（推荐）</div>
+                </div>
+              </div>
+
               <Button
                 type="primary"
                 onClick={() => handleExport(selectedFileType)}
@@ -232,16 +301,65 @@ const SalesReportsPage: React.FC = () => {
                 size="large"
                 className="mt-2 rounded-lg h-12"
                 block
+                disabled={isExporting}
               >
-                导出报表
+                {isExporting 
+                  ? (isRetrying ? '重试中...' : '导出中...') 
+                  : '导出报表'
+                }
               </Button>
+              
+              {/* 导出状态提示 */}
+              {isExporting && (
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center text-blue-600">
+                    <Spin size="small" className="mr-2" />
+                    <span className="text-sm">
+                      {selectedFileType === 'excel' && '正在生成Excel文件，预计需要30-90秒...'}
+                      {selectedFileType === 'pdf' && '正在生成PDF文件，预计需要15-45秒...'}
+                      {selectedFileType === 'png' && '正在生成图片文件，预计需要10-30秒...'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-500 mt-1">
+                    请耐心等待，大文件生成需要更多时间
+                  </p>
+                </div>
+              )}
             </div>
           </ConfigProvider>
         </Card>
 
         {/* 错误提示 */}
         {error && (
-          <Alert message={error} type="error" showIcon className="mt-4 rounded-lg" />
+          <Card className="mt-6 shadow-md rounded-xl border-red-200">
+            <Alert 
+              message="导出失败" 
+              description={
+                <div>
+                  <p className="mb-3">{error}</p>
+                  {retryCount > 0 && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button 
+                        type="primary" 
+                        size="small"
+                        onClick={handleRetry}
+                        loading={isRetrying}
+                        className="rounded-lg"
+                      >
+                        {isRetrying ? '重试中...' : '重试'}
+                      </Button>
+                      <span className="text-gray-500 text-sm self-center">
+                        提示：Excel文件生成通常需要更长时间，建议稍后重试
+                      </span>
+                    </div>
+                  )}
+                </div>
+              }
+              type="error" 
+              showIcon 
+              className="border-red-200"
+            />
+          </Card>
         )}
 
         {/* 导出结果 */}

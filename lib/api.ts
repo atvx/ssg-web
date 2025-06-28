@@ -7,6 +7,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // 创建axios实例
 const apiClient = axios.create({
   baseURL: API_URL,
+  timeout: 30000, // 30秒超时
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 创建用于报表导出的特殊axios实例（更长超时时间）
+const exportApiClient = axios.create({
+  baseURL: API_URL,
+  timeout: 120000, // 2分钟超时，用于报表导出
   headers: {
     'Content-Type': 'application/json',
   },
@@ -45,6 +55,36 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     
+    // 处理401未授权错误
+    if (error.response && error.response.status === 401) {
+      Cookies.remove('token');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// 为导出API客户端也添加拦截器
+exportApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = Cookies.get('token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: AxiosError) => {
+    return Promise.reject(error);
+  }
+);
+
+exportApiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response;
+  },
+  (error: AxiosError) => {
     // 处理401未授权错误
     if (error.response && error.response.status === 401) {
       Cookies.remove('token');
@@ -153,7 +193,7 @@ export const salesAPI = {
   
   // 导出日报
   exportDailyReport: (params?: { date?: string; file_type?: 'excel' | 'pdf' | 'png' }) => {
-    return apiClient.get<APIResponse>('/api/sales/daily/export', { params });
+    return exportApiClient.get<APIResponse>('/api/sales/daily/export', { params });
   },
 };
 
