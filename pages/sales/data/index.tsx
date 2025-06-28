@@ -119,7 +119,7 @@ const SalesDataPage: React.FC = () => {
   const [verificationTaskId, setVerificationTaskId] = useState('');
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
   const [verificationModalVisible, setVerificationModalVisible] = useState(false);
-  const [countDown, setCountDown] = useState(10);
+  const [countDown, setCountDown] = useState(60);
   const [countDownActive, setCountDownActive] = useState(false);
   const countDownRef = useRef<NodeJS.Timeout | null>(null);
   const [isSubmittingCode, setIsSubmittingCode] = useState(false);
@@ -336,6 +336,7 @@ const SalesDataPage: React.FC = () => {
           
           setVerificationModalVisible(true);
           setVerificationCode(['', '', '', '', '', '']); // 重置验证码输入
+          setIsSubmittingCode(false); // 重置提交状态
           
           // 初始化引用数组
           verificationInputRefs.current = Array(6).fill(null);
@@ -354,6 +355,7 @@ const SalesDataPage: React.FC = () => {
                 clearInterval(countDownRef.current as NodeJS.Timeout);
                 setCountDownActive(false);
                 setVerificationModalVisible(false); // 倒计时结束关闭对话框
+                closeWebSocket(); // 关闭WebSocket连接
                 return 0;
               }
               return prev - 1;
@@ -370,12 +372,18 @@ const SalesDataPage: React.FC = () => {
         
         // 处理验证成功的情况
         if (data.type === 'verification_success') {
-          setVerificationModalVisible(false);
-          setIsSubmittingCode(false); // 重置提交状态
-          
-          if (countDownRef.current) {
-            clearInterval(countDownRef.current);
-            setCountDownActive(false);
+          // 这个逻辑已经移到handleVerificationSubmit中处理
+          // 这里可以作为备用处理，但通常不会执行到
+          if (verificationModalVisible) {
+            setVerificationModalVisible(false);
+            setIsSubmittingCode(false);
+            
+            if (countDownRef.current) {
+              clearInterval(countDownRef.current);
+              setCountDownActive(false);
+            }
+            
+            message.success('验证码验证成功');
           }
         }
       } catch (error) {
@@ -466,6 +474,11 @@ const SalesDataPage: React.FC = () => {
   
   // 处理验证码输入变化
   const handleVerificationInputChange = (index: number, value: string) => {
+    // 如果正在提交验证码或倒计时已结束，不允许输入
+    if (isSubmittingCode || !countDownActive) {
+      return;
+    }
+    
     if (value.length > 1) {
       value = value.charAt(0); // 只取第一个字符
     }
@@ -513,12 +526,45 @@ const SalesDataPage: React.FC = () => {
       const response = await apiClient.post(`/api/auth/verification/${verificationTaskId}/submit`, { code });
       
       if (response.data.success) {
-        // 不显示成功提示，等待WebSocket返回结果
+        // 验证码提交成功，自动关闭对话框
+        setVerificationModalVisible(false);
+        setIsSubmittingCode(false);
+        
+        // 清理验证码相关状态
+        setVerificationCode(['', '', '', '', '', '']);
+        setVerificationTaskId('');
+        setVerificationMessage('');
+        
+        // 清理倒计时
+        if (countDownRef.current) {
+          clearInterval(countDownRef.current);
+          setCountDownActive(false);
+        }
+        
+        // 关闭WebSocket连接
+        closeWebSocket();
+        
+        // 显示成功提示
+        message.success('验证码验证成功');
       } else {
         setIsSubmittingCode(false); // 如果提交失败，重置状态
+        message.error('验证码错误，请重新输入');
+        // 清空验证码输入，让用户重新输入
+        setVerificationCode(['', '', '', '', '', '']);
+        // 重新聚焦到第一个输入框
+        if (verificationInputRefs.current[0]) {
+          verificationInputRefs.current[0].focus();
+        }
       }
     } catch (error) {
       setIsSubmittingCode(false); // 如果出现异常，重置状态
+      message.error('验证码提交失败，请重试');
+      // 清空验证码输入
+      setVerificationCode(['', '', '', '', '', '']);
+      // 重新聚焦到第一个输入框
+      if (verificationInputRefs.current[0]) {
+        verificationInputRefs.current[0].focus();
+      }
     }
   };
 
@@ -921,22 +967,39 @@ const SalesDataPage: React.FC = () => {
         title="验证码确认"
         open={verificationModalVisible}
         onCancel={() => {
-          if (!countDownActive) {
-            setVerificationModalVisible(false);
-            closeWebSocket();
+          // 允许用户随时关闭对话框
+          setVerificationModalVisible(false);
+          
+          // 清理验证码相关状态
+          setVerificationCode(['', '', '', '', '', '']);
+          setVerificationTaskId('');
+          setVerificationMessage('');
+          setIsSubmittingCode(false);
+          
+          // 清理倒计时
+          if (countDownRef.current) {
+            clearInterval(countDownRef.current);
+            setCountDownActive(false);
           }
+          
+          // 关闭WebSocket连接
+          closeWebSocket();
         }}
         footer={null}
         width={isMobile ? "90%" : 420}
-        maskClosable={false}
+        maskClosable={true}
         className="rounded-lg"
+        closable={true}
       >
         <div className="text-center mb-4">
           <p className="mb-2">请输入发送到 <strong>{phoneNumber}</strong> 的验证码</p>
           <p className="text-sm text-gray-500">
-            {countDownActive 
-              ? `验证码将在 ${countDown} 秒后自动提交` 
-              : '验证码已提交，请等待处理结果'}
+            {isSubmittingCode 
+              ? '正在验证验证码...'
+              : countDownActive 
+              ? `输入完成后将自动提交，${countDown} 秒后自动关闭`
+              : '验证码已过期'
+            }
           </p>
         </div>
         
@@ -956,16 +1019,18 @@ const SalesDataPage: React.FC = () => {
           ))}
         </div>
         
-        <div className="flex justify-center">
-          <Button 
-            type="primary" 
-            onClick={() => handleVerificationSubmit(verificationCode.join(''))}
-            loading={isSubmittingCode}
-            disabled={verificationCode.some(digit => !digit) || !countDownActive}
-            className="rounded-lg w-full"
-          >
-            提交验证码
-          </Button>
+        {/* 倒计时提示 */}
+        <div className="text-center">
+          {countDownActive && (
+            <div className="flex items-center justify-center text-blue-600">
+              <div className="animate-pulse mr-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              </div>
+              <p className="text-sm">
+                倒计时 <span className="font-mono text-lg font-semibold">{countDown}</span> 秒
+              </p>
+            </div>
+          )}
         </div>
       </Modal>
     </Layout>
