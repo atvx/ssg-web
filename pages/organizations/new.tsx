@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert, TreeSelect, message, Spin } from 'antd';
-import { HomeOutlined, EnvironmentOutlined, ShopOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, ConfigProvider, InputNumber, Alert, TreeSelect, message, Spin, Card, Divider } from 'antd';
+import { HomeOutlined, EnvironmentOutlined, ShopOutlined, SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
@@ -23,6 +23,28 @@ interface OrgTreeNode {
   org_type?: number; // 添加机构类型信息
 }
 
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
+
 const NewOrganizationPage: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -36,6 +58,7 @@ const NewOrganizationPage: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<boolean>(false);
+  const isMobile = useIsMobile();
 
   // 检查用户权限
   const hasAdminPermission = user?.is_superuser === true;
@@ -217,13 +240,16 @@ const NewOrganizationPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">新增机构</h1>
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'} mb-6`}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>
+              新增机构
+            </h1>
             <Button 
-              icon={<ArrowLeftIcon className="h-5 w-5 mr-1" />} 
+              icon={<ArrowLeftOutlined />} 
               onClick={() => router.push('/organizations')}
-              className="btn btn-outline"
+              size={isMobile ? "large" : "middle"}
+              className={`${isMobile ? 'w-full' : ''} rounded-lg`}
             >
               返回列表
             </Button>
@@ -236,35 +262,43 @@ const NewOrganizationPage: React.FC = () => {
               description="创建机构需要管理员权限，请联系系统管理员获取权限。"
               type="warning"
               showIcon
-              className="mb-6"
+              className="mb-6 rounded-lg"
             />
           )}
 
           {/* 错误提示 */}
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {/* 表单 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Card className={`${isMobile ? 'shadow-sm' : 'shadow'} rounded-xl`}>
             <Form
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
-              className="p-6"
               initialValues={{
                 org_type: undefined,
                 sort: 0
               }}
             >
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* 基础信息 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4">基础信息</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+              
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 上级机构 */}
                 <Form.Item
                   name="parent_id"
                   label="上级机构"
                   rules={[{ required: true, message: '请选择上级机构' }]}
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <TreeSelect
                     placeholder="请选择上级机构"
@@ -272,13 +306,10 @@ const NewOrganizationPage: React.FC = () => {
                     showSearch
                     allowClear
                     treeData={treeData}
-                    styles={{
-                      popup: {
-                        root: {
-                          maxHeight: 400,
-                          overflow: 'auto'
-                        }
-                      }
+                    size={isMobile ? "large" : "middle"}
+                    dropdownStyle={{
+                      maxHeight: 400,
+                      overflow: 'auto'
                     }}
                     filterTreeNode={(input, node) => 
                       (node?.title as string)?.toLowerCase().indexOf(input.toLowerCase()) >= 0
@@ -300,6 +331,7 @@ const NewOrganizationPage: React.FC = () => {
                       disabled
                       value={orgTypeName}
                       readOnly
+                      size={isMobile ? "large" : "middle"}
                     />
                     <Form.Item 
                       name="org_type"
@@ -310,14 +342,27 @@ const NewOrganizationPage: React.FC = () => {
                     </Form.Item>
                   </div>
                 </Form.Item>
+              </div>
 
+              {/* 机构详情 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4 mt-6">机构详情</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 机构ID */}
                 <Form.Item
                   name="org_id"
                   label="机构ID"
                   rules={[{ required: true, message: '请输入机构ID' }]}
                 >
-                  <Input placeholder="请输入机构ID" />
+                  <Input 
+                    placeholder="请输入机构ID" 
+                    size={isMobile ? "large" : "middle"}
+                  />
                 </Form.Item>
 
                 {/* 机构名称 */}
@@ -326,7 +371,10 @@ const NewOrganizationPage: React.FC = () => {
                   label="机构名称"
                   rules={[{ required: true, message: '请输入机构名称' }]}
                 >
-                  <Input placeholder="请输入机构名称" />
+                  <Input 
+                    placeholder="请输入机构名称" 
+                    size={isMobile ? "large" : "middle"}
+                  />
                 </Form.Item>
 
                 {/* 排序 */}
@@ -334,18 +382,25 @@ const NewOrganizationPage: React.FC = () => {
                   name="sort"
                   label="排序"
                   rules={[{ required: true, message: '请输入排序值' }]}
+                  extra="数值越小排序越靠前"
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <InputNumber 
                     style={{ width: '100%' }} 
                     placeholder="请输入排序值" 
                     min={0}
+                    size={isMobile ? "large" : "middle"}
                   />
                 </Form.Item>
               </div>
 
               {/* 提交按钮 */}
-              <div className="flex justify-end space-x-4 mt-6">
-                <Button onClick={() => router.push('/organizations')}>
+              <div className={`${isMobile ? 'mt-8 flex flex-col gap-3' : 'flex justify-end space-x-4 mt-6'}`}>
+                <Button 
+                  onClick={() => router.push('/organizations')}
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : ''} rounded-lg`}
+                >
                   取消
                 </Button>
                 <Button
@@ -353,12 +408,15 @@ const NewOrganizationPage: React.FC = () => {
                   htmlType="submit"
                   loading={isSubmitting}
                   disabled={!hasAdminPermission || isSubmitting}
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : ''} rounded-lg`}
+                  icon={<SaveOutlined />}
                 >
-                  保存
+                  保存机构
                 </Button>
               </div>
             </Form>
-          </div>
+          </Card>
         </div>
       </ConfigProvider>
     </Layout>

@@ -1,4 +1,5 @@
 import React from 'react';
+import Head from 'next/head';
 import { AppProps } from 'next/app';
 import { AuthProvider } from '@/contexts/AuthContext';
 import dynamic from 'next/dynamic';
@@ -16,9 +17,19 @@ function MyApp({ Component, pageProps }: NextAppProps) {
   const getLayout = Component.getLayout ?? ((page) => page);
 
   return (
-    <AuthProvider>
-      {getLayout(<Component {...pageProps} />)}
-    </AuthProvider>
+    <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#0ea5e9" />
+      </Head>
+      <AuthProvider>
+        {getLayout(<Component {...pageProps} />)}
+      </AuthProvider>
+    </>
   );
 }
 

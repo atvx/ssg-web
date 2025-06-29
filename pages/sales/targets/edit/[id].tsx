@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber } from 'antd';
+import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber, Card, Divider, Spin } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -10,9 +10,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { OrgListItem, MonthlySalesTarget } from '@/types/api';
+import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
+
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
 
 const EditTargetPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -25,6 +48,7 @@ const EditTargetPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -163,8 +187,8 @@ const EditTargetPage: React.FC = () => {
 
   const orgGroups = groupOrgsByParent();
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+  if (isLoading || isLoadingData) {
+    return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
 
   if (!isAuthenticated) {
@@ -174,8 +198,8 @@ const EditTargetPage: React.FC = () => {
   if (!targetId) {
     return (
       <Layout>
-        <div className="py-6">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
             无效的目标ID
           </div>
         </div>
@@ -191,13 +215,16 @@ const EditTargetPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">编辑目标</h1>
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'} mb-6`}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>
+              编辑目标
+            </h1>
             <Button 
-              icon={<ArrowLeftIcon className="h-5 w-5 mr-1" />} 
+              icon={<ArrowLeftOutlined />} 
               onClick={() => router.push('/sales/targets')}
-              className="btn btn-outline"
+              size={isMobile ? "large" : "middle"}
+              className={`${isMobile ? 'w-full' : ''} rounded-lg`}
             >
               返回
             </Button>
@@ -205,24 +232,30 @@ const EditTargetPage: React.FC = () => {
 
           {/* 错误提示 */}
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {/* 表单 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Card className={`${isMobile ? 'shadow-sm' : 'shadow'} rounded-xl`}>
             <Form
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
-              className="p-6"
               initialValues={{
                 car_count: 0
               }}
-              disabled={isLoadingData}
             >
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* 基础信息 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4">基础信息</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+              
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 年月 */}
                 <Form.Item
                   name="date"
@@ -234,6 +267,8 @@ const EditTargetPage: React.FC = () => {
                     style={{ width: '100%' }}
                     format="YYYY年MM月"
                     disabled={true}
+                    size={isMobile ? "large" : "middle"}
+                    placeholder="选择年月"
                   />
                 </Form.Item>
                 
@@ -242,11 +277,12 @@ const EditTargetPage: React.FC = () => {
                   name="org_id"
                   label="仓库"
                   rules={[{ required: true, message: '请选择机构' }]}
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <Select
                     placeholder="请选择仓库"
-                    loading={isLoadingData}
                     disabled={true}
+                    size={isMobile ? "large" : "middle"}
                   >
                     {orgGroups.map(group => (
                       <Select.OptGroup key={group.parent.org_id} label={group.parent.org_name}>
@@ -260,7 +296,17 @@ const EditTargetPage: React.FC = () => {
                     ))}
                   </Select>
                 </Form.Item>
+              </div>
 
+              {/* 目标设置 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4 mt-6">目标设置</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 目标金额 */}
                 <Form.Item
                   name="target_income"
@@ -271,8 +317,10 @@ const EditTargetPage: React.FC = () => {
                     style={{ width: '100%' }}
                     min={0}
                     step={1000}
-                    prefix="¥"
                     placeholder="请输入目标金额"
+                    size={isMobile ? "large" : "middle"}
+                    formatter={value => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value: string | undefined) => value ? parseFloat(value.replace(/\¥\s?|(,*)/g, '')) : 0}
                   />
                 </Form.Item>
 
@@ -280,20 +328,23 @@ const EditTargetPage: React.FC = () => {
                 <Form.Item
                   name="car_count"
                   label="车辆配置"
+                  extra="可选，用于计算平均指标"
                 >
                   <InputNumber
                     style={{ width: '100%' }}
                     min={0}
                     step={1}
                     placeholder="请输入车辆配置数量"
+                    size={isMobile ? "large" : "middle"}
                   />
                 </Form.Item>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className={`${isMobile ? 'mt-8 flex flex-col gap-3' : 'mt-6 flex justify-end'}`}>
                 <Button
                   onClick={() => router.push('/sales/targets')}
-                  className="mr-3"
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : 'mr-3'} rounded-lg`}
                 >
                   取消
                 </Button>
@@ -301,12 +352,15 @@ const EditTargetPage: React.FC = () => {
                   type="primary"
                   htmlType="submit"
                   loading={isSubmitting}
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : ''} rounded-lg`}
+                  icon={<SaveOutlined />}
                 >
-                  保存
+                  保存修改
                 </Button>
               </div>
             </Form>
-          </div>
+          </Card>
         </div>
       </ConfigProvider>
     </Layout>

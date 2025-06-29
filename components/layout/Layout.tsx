@@ -88,6 +88,13 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
     },
   ];
 
+  // 处理菜单点击后关闭移动端侧边栏
+  const handleMenuClick = () => {
+    if (sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
     <AntLayout className="min-h-screen">
       {/* 移动端侧边栏抽屉 */}
@@ -97,7 +104,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
           closable={false}
           onClose={() => setSidebarOpen(false)}
           open={sidebarOpen}
-          width={250}
+          width={280}
           styles={{ body: { padding: 0 } }}
           className="md:hidden"
         >
@@ -123,6 +130,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
             mode="inline"
             selectedKeys={getSelectedKeys()}
             className="flex-1 border-0"
+            onClick={handleMenuClick}
             items={filteredNavigation.map(item => ({
               key: item.href,
               icon: item.icon,
@@ -171,13 +179,14 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
       {/* 主内容区 */}
       <AntLayout className="md:ml-[200px]">
         {/* 顶部导航栏 */}
-        <Header className="bg-white p-0 shadow-sm flex items-center justify-between">
+        <Header className="bg-white px-0 shadow-sm flex items-center justify-between sticky top-0 z-10">
           <ClientOnly>
             <Button
               type="text"
               icon={<MenuOutlined />}
               onClick={() => setSidebarOpen(true)}
               className="ml-4 md:hidden"
+              size="large"
             />
           </ClientOnly>
 
@@ -201,8 +210,10 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
         </Header>
 
         {/* 页面内容 */}
-        <Content className="m-0 md:m-4 p-0 md:p-6 bg-white rounded shadow-sm">
-          {children}
+        <Content className="min-h-[calc(100vh-64px)] bg-gray-50 md:bg-white">
+          <div className="h-full md:m-4 md:p-6 md:bg-white md:rounded-lg md:shadow-sm">
+            {children}
+          </div>
         </Content>
       </AntLayout>
     </AntLayout>

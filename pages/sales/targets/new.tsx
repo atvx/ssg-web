@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber, Alert, Spin } from 'antd';
+import { Form, Input, Select, DatePicker, Button, ConfigProvider, InputNumber, Alert, Spin, Card, Divider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -10,9 +10,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { OrgListItem } from '@/types/api';
+import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
+
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
 
 const NewTargetPage: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -24,6 +47,7 @@ const NewTargetPage: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<boolean>(false);
+  const isMobile = useIsMobile();
 
   // 检查用户权限
   const hasAdminPermission = user?.is_superuser === true;
@@ -154,13 +178,16 @@ const NewTargetPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">新增月目标</h1>
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'} mb-6`}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>
+              新增月目标
+            </h1>
             <Button 
-              icon={<ArrowLeftIcon className="h-5 w-5 mr-1" />} 
+              icon={<ArrowLeftOutlined />} 
               onClick={() => router.push('/sales/targets')}
-              className="btn btn-outline"
+              size={isMobile ? "large" : "middle"}
+              className={`${isMobile ? 'w-full' : ''} rounded-lg`}
             >
               返回列表
             </Button>
@@ -173,7 +200,7 @@ const NewTargetPage: React.FC = () => {
               description="创建月目标需要管理员权限，请联系系统管理员获取权限。"
               type="warning"
               showIcon
-              className="mb-6"
+              className="mb-6 rounded-lg"
             />
           )}
 
@@ -185,19 +212,26 @@ const NewTargetPage: React.FC = () => {
           )}
 
           {/* 表单 */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <Card className={`${isMobile ? 'shadow-sm' : 'shadow'} rounded-xl`}>
             <Form
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
-              className="p-6"
               initialValues={{
                 date: dayjs(),
                 target_income: 0,
                 car_count: 0
               }}
             >
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* 基础信息 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4">基础信息</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+              
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 年月 */}
                 <Form.Item
                   name="date"
@@ -208,6 +242,8 @@ const NewTargetPage: React.FC = () => {
                     picker="month" 
                     style={{ width: '100%' }}
                     format="YYYY年MM月"
+                    size={isMobile ? "large" : "middle"}
+                    placeholder="选择年月"
                   />
                 </Form.Item>
                 
@@ -216,10 +252,14 @@ const NewTargetPage: React.FC = () => {
                   name="org_id"
                   label="仓库"
                   rules={[{ required: true, message: '请选择机构' }]}
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <Select
                     placeholder="请选择仓库"
                     loading={isLoadingData}
+                    size={isMobile ? "large" : "middle"}
+                    showSearch
+                    optionFilterProp="children"
                   >
                     {orgGroups.map(group => (
                       <Select.OptGroup key={group.parent.org_id} label={group.parent.org_name}>
@@ -233,7 +273,17 @@ const NewTargetPage: React.FC = () => {
                     ))}
                   </Select>
                 </Form.Item>
+              </div>
 
+              {/* 目标设置 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4 mt-6">目标设置</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 gap-6 md:grid-cols-2'}`}>
                 {/* 目标金额 */}
                 <Form.Item
                   name="target_income"
@@ -244,8 +294,10 @@ const NewTargetPage: React.FC = () => {
                     style={{ width: '100%' }}
                     min={0}
                     step={1000}
-                    prefix="¥"
                     placeholder="请输入目标金额"
+                    size={isMobile ? "large" : "middle"}
+                    formatter={value => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value: string | undefined) => value ? parseFloat(value.replace(/\¥\s?|(,*)/g, '')) : 0}
                   />
                 </Form.Item>
 
@@ -253,20 +305,23 @@ const NewTargetPage: React.FC = () => {
                 <Form.Item
                   name="car_count"
                   label="车辆配置"
+                  extra="可选，用于计算平均指标"
                 >
                   <InputNumber
                     style={{ width: '100%' }}
                     min={0}
                     step={1}
                     placeholder="请输入车辆配置数量"
+                    size={isMobile ? "large" : "middle"}
                   />
                 </Form.Item>
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className={`${isMobile ? 'mt-8 flex flex-col gap-3' : 'mt-6 flex justify-end'}`}>
                 <Button
                   onClick={() => router.push('/sales/targets')}
-                  className="mr-3"
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : 'mr-3'} rounded-lg`}
                 >
                   取消
                 </Button>
@@ -275,12 +330,15 @@ const NewTargetPage: React.FC = () => {
                   htmlType="submit"
                   loading={isSubmitting}
                   disabled={!hasAdminPermission || permissionError}
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : ''} rounded-lg`}
+                  icon={<SaveOutlined />}
                 >
-                  保存
+                  保存目标
                 </Button>
               </div>
             </Form>
-          </div>
+          </Card>
         </div>
       </ConfigProvider>
     </Layout>

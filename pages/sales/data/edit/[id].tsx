@@ -10,7 +10,9 @@ import {
   message, 
   InputNumber, 
   ConfigProvider,
-  DatePicker
+  DatePicker,
+  Card,
+  Divider
 } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -21,6 +23,28 @@ import { SalesRecord, SalesRecordUpdate, OrgListItem } from '@/types/api';
 import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 
 const { Option, OptGroup } = Select;
+
+// 判断是否为移动设备的Hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // 初始检查
+    checkIsMobile();
+    
+    // 监听窗口大小变化
+    window.addEventListener('resize', checkIsMobile);
+    
+    // 清理函数
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
+  
+  return isMobile;
+};
 
 const EditSalesRecordPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,6 +58,7 @@ const EditSalesRecordPage: React.FC = () => {
   const [record, setRecord] = useState<SalesRecord | null>(null);
   const [isLoadingRecord, setIsLoadingRecord] = useState(true);
   const [orgs, setOrgs] = useState<OrgListItem[]>([]);
+  const isMobile = useIsMobile();
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -200,23 +225,31 @@ const EditSalesRecordPage: React.FC = () => {
   if (!record && !isLoadingRecord) {
     return (
       <Layout>
-        <div className="py-6">
-          <div className="flex items-center mb-6">
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center'} mb-6`}>
             <Button 
               icon={<ArrowLeftOutlined />} 
               onClick={() => router.back()}
-              style={{ marginRight: '16px' }}
+              size={isMobile ? "large" : "middle"}
+              className={isMobile ? "w-full" : "mr-4"}
             >
               返回
             </Button>
-            <h1 className="text-2xl font-semibold text-gray-900">销售记录不存在</h1>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>
+              销售记录不存在
+            </h1>
           </div>
-          <div className="bg-white shadow rounded-lg p-6 text-center">
+          <Card className={`${isMobile ? 'shadow-sm' : 'shadow'} rounded-xl text-center`}>
             <p className="text-gray-500 mb-4">未找到该销售记录或已被删除</p>
-            <Button type="primary" onClick={() => router.push('/sales/data')}>
+            <Button 
+              type="primary" 
+              onClick={() => router.push('/sales/data')}
+              size={isMobile ? "large" : "middle"}
+              className={`${isMobile ? 'w-full' : ''} rounded-lg`}
+            >
               返回列表
             </Button>
-          </div>
+          </Card>
         </div>
       </Layout>
     );
@@ -232,13 +265,16 @@ const EditSalesRecordPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-6">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold text-gray-900">编辑销售记录</h1>
+        <div className={`${isMobile ? 'px-4 py-4' : 'py-6'}`}>
+          <div className={`flex ${isMobile ? 'flex-col gap-3' : 'items-center justify-between'} mb-6`}>
+            <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>
+              编辑销售记录
+            </h1>
             <Button 
               icon={<ArrowLeftOutlined />} 
               onClick={() => router.back()}
-              style={{ marginRight: '16px' }}
+              size={isMobile ? "large" : "middle"}
+              className={isMobile ? "w-full" : ""}
             >
               返回
             </Button>
@@ -251,13 +287,21 @@ const EditSalesRecordPage: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-white shadow rounded-lg p-6">
+          <Card className={`${isMobile ? 'shadow-sm' : 'shadow'} rounded-xl`}>
             <Form
               form={form}
               layout="vertical"
               onFinish={handleSubmit}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+              {/* 基础信息 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4">基础信息</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+              
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2'}`}>
                 <Form.Item
                   name="date"
                   label="日期"
@@ -266,6 +310,8 @@ const EditSalesRecordPage: React.FC = () => {
                   <DatePicker 
                     style={{ width: '100%' }}
                     format="YYYY-MM-DD"
+                    size={isMobile ? "large" : "middle"}
+                    placeholder="选择日期"
                   />
                 </Form.Item>
 
@@ -274,7 +320,10 @@ const EditSalesRecordPage: React.FC = () => {
                   label="平台"
                   rules={[{ required: true, message: '请选择平台' }]}
                 >
-                  <Select placeholder="请选择平台">
+                  <Select 
+                    placeholder="请选择平台"
+                    size={isMobile ? "large" : "middle"}
+                  >
                     <Option value="duowei">多维</Option>
                     <Option value="meituan">美团</Option>
                   </Select>
@@ -284,11 +333,13 @@ const EditSalesRecordPage: React.FC = () => {
                   name="org_id"
                   label="仓库"
                   rules={[{ required: true, message: '请选择仓库' }]}
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <Select
                     disabled
                     placeholder="选择仓库"
                     style={{ width: '100%' }}
+                    size={isMobile ? "large" : "middle"}
                   >
                     {orgGroups.map(group => (
                       <OptGroup key={group.parent.org_id} label={group.parent.org_name}>
@@ -302,7 +353,17 @@ const EditSalesRecordPage: React.FC = () => {
                     ))}
                   </Select>
                 </Form.Item>
+              </div>
 
+              {/* 销售数据 */}
+              {isMobile && (
+                <>
+                  <div className="text-base font-medium text-gray-900 mb-4 mt-6">销售数据</div>
+                  <Divider className="my-4" />
+                </>
+              )}
+
+              <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2'}`}>
                 <Form.Item
                   name="income_amt"
                   label="营业额"
@@ -313,6 +374,7 @@ const EditSalesRecordPage: React.FC = () => {
                     placeholder="输入营业额"
                     min={0}
                     precision={2}
+                    size={isMobile ? "large" : "middle"}
                     formatter={value => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={(value: string | undefined) => value ? parseFloat(value.replace(/\¥\s?|(,*)/g, '')) : 0}
                   />
@@ -328,6 +390,7 @@ const EditSalesRecordPage: React.FC = () => {
                     placeholder="输入车次数量" 
                     min={0}
                     precision={0}
+                    size={isMobile ? "large" : "middle"}
                   />
                 </Form.Item>
 
@@ -335,30 +398,34 @@ const EditSalesRecordPage: React.FC = () => {
                   name="avg_income_amt"
                   label="车均"
                   extra="留空将自动计算"
+                  className={isMobile ? "md:col-span-2" : ""}
                 >
                   <InputNumber
                     style={{ width: '100%' }}
                     placeholder="输入车均金额（可选）"
                     min={0}
                     precision={2}
+                    size={isMobile ? "large" : "middle"}
                     formatter={value => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                     parser={(value: string | undefined) => value ? parseFloat(value.replace(/\¥\s?|(,*)/g, '')) : 0}
                   />
                 </Form.Item>
               </div>
 
-              <Form.Item className="mt-4">
+              <Form.Item className={`${isMobile ? 'mt-8' : 'mt-4'}`}>
                 <Button
                   type="primary"
                   htmlType="submit"
                   loading={isSubmitting}
                   icon={<SaveOutlined />}
+                  size={isMobile ? "large" : "middle"}
+                  className={`${isMobile ? 'w-full' : ''} rounded-lg`}
                 >
-                  保存
+                  保存修改
                 </Button>
               </Form.Item>
             </Form>
-          </div>
+          </Card>
         </div>
       </ConfigProvider>
     </Layout>

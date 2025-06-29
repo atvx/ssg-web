@@ -793,22 +793,43 @@ const SalesDataPage: React.FC = () => {
             onChange={onTableChange}
             className="w-full"
           />
-          <div className={`flex justify-end p-4 ${isMobile ? 'flex-wrap gap-2' : ''}`}>
+          {!isMobile && (
+            <div className="flex justify-end p-4">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={salesRecords?.total || 0}
+                onChange={handlePaginationChange}
+                showSizeChanger
+                showQuickJumper
+                showTotal={(total) => `共 ${total} 条记录`}
+                size="default"
+                pageSizeOptions={["10", "20", "50", "100"]}
+                defaultPageSize={10}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 移动端分页 */}
+        {isMobile && salesRecords && salesRecords.total > 0 && (
+          <div className="bg-white rounded-xl shadow-md mt-4 p-4">
             <Pagination
               current={currentPage}
               pageSize={pageSize}
-              total={salesRecords?.total || 0}
+              total={salesRecords.total}
               onChange={handlePaginationChange}
               showSizeChanger
-              showQuickJumper={!isMobile}
               showTotal={(total) => `共 ${total} 条记录`}
-              size={isMobile ? "small" : "default"}
-              className={isMobile ? "w-full flex justify-center" : ""}
-              pageSizeOptions={isMobile ? ["10", "20", "50"] : ["10", "20", "50", "100"]}
-              defaultPageSize={isMobile ? 20 : 10}
+              size="small"
+              className="flex justify-center flex-wrap"
+              pageSizeOptions={["10", "20", "50"]}
+              defaultPageSize={20}
+              simple={false}
+              showQuickJumper={false}
             />
           </div>
-        </div>
+        )}
 
         {/* 移动端浮动按钮 */}
         {isMobile && (

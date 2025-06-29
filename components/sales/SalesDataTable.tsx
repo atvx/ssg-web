@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/router';
-import { Table, Spin, Tag, Button, Popconfirm, message } from 'antd';
+import { Table, Spin, Tag, Button, Popconfirm, message, Card, Space, Empty } from 'antd';
 import { SalesRecord, SalesRecordListResponse } from '@/types/api';
-import { EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, ExclamationCircleOutlined, MoneyCollectOutlined, CarOutlined, ShopOutlined, CalendarOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { salesAPI } from '@/lib/api';
 
@@ -165,51 +165,126 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
     },
   ];
 
-  // 移动端列配置 - 只保留4列
-  const mobileColumns: ColumnsType<SalesRecord> = [
-    {
-      title: '仓库/日期',
-      key: 'warehouse_date',
-      render: (_, record) => (
-        <div>
-          <div className="font-medium">{record.warehouse_name || '-'}</div>
-          <div className="text-xs text-gray-500 mt-1">{record.date || '-'}</div>
-        </div>
-      ),
-    },
-    {
-      title: '营业额',
-      dataIndex: 'income_amt',
-      key: 'income_amt',
-      render: (amount) => amount ? `¥${amount}` : '¥0',
-      sorter: (a, b) => parseFloat(a.income_amt || '0') - parseFloat(b.income_amt || '0'),
-      sortDirections: ['ascend', 'descend'],
-    },
-    {
-      title: '车次',
-      dataIndex: 'sales_cart_count',
-      key: 'sales_cart_count',
-      render: (count) => count || '0',
-      sorter: (a, b) => (a.sales_cart_count || 0) - (b.sales_cart_count || 0),
-      sortDirections: ['ascend', 'descend'],
-    },
-    {
-      title: '车均',
-      dataIndex: 'avg_income_amt',
-      key: 'avg_income_amt',
-      render: (amount) => amount ? `¥${amount}` : '¥0',
-      sorter: (a, b) => parseFloat(a.avg_income_amt || '0') - parseFloat(b.avg_income_amt || '0'),
-      sortDirections: ['ascend', 'descend'],
-    },
-  ];
+  // 移动端卡片渲染
+  const renderMobileCards = () => {
+    if (!data?.items || data.items.length === 0) {
+      return (
+        <Empty
+          className="my-8"
+          description="暂无销售记录"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
+      );
+    }
 
-  // 根据设备类型选择列配置
-  const columns = isMobile ? mobileColumns : desktopColumns;
+    return (
+      <div className="space-y-3">
+        {data.items.map((record) => {
+          // 平台标签
+          let platformTag;
+          if (record.platform === 'duowei') {
+            platformTag = <Tag color="#2db7f5">多维</Tag>;
+          } else if (record.platform === 'meituan') {
+            platformTag = <Tag color="#ffd100" style={{ color: '#000000' }}>美团</Tag>;
+          } else {
+            platformTag = <Tag>{record.platform || '未知'}</Tag>;
+          }
+
+          return (
+            <Card 
+              key={record.id} 
+              className="rounded-xl shadow-md hover:shadow-lg transition-shadow duration-200"
+              bodyStyle={{ padding: '16px' }}
+            >
+              {/* 头部信息 */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center">
+                  <ShopOutlined className="text-blue-500 mr-2" />
+                  <div>
+                    <div className="font-medium text-gray-900">{record.warehouse_name || '-'}</div>
+                    <div className="text-xs text-gray-500 flex items-center mt-1">
+                      <CalendarOutlined className="mr-1" />
+                      {record.date || '-'}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  {platformTag}
+                </div>
+              </div>
+
+              {/* 数据展示 */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-1">
+                    <MoneyCollectOutlined className="text-green-500 mr-1" />
+                    <span className="text-xs text-gray-500">营业额</span>
+                  </div>
+                  <div className="font-semibold text-lg text-green-600">
+                    ¥{record.income_amt || '0'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-1">
+                    <CarOutlined className="text-blue-500 mr-1" />
+                    <span className="text-xs text-gray-500">车次</span>
+                  </div>
+                  <div className="font-semibold text-lg text-blue-600">
+                    {record.sales_cart_count || '0'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center mb-1">
+                    <MoneyCollectOutlined className="text-orange-500 mr-1" />
+                    <span className="text-xs text-gray-500">车均</span>
+                  </div>
+                  <div className="font-semibold text-lg text-orange-600">
+                    ¥{record.avg_income_amt || '0'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex justify-end border-t border-gray-100 pt-3">
+                <Space>
+                  <Button 
+                    type="text"
+                    icon={<EditOutlined />}
+                    onClick={() => router.push(`/sales/data/edit/${record.id}`)}
+                    className="text-blue-500 hover:bg-blue-50"
+                  >
+                    编辑
+                  </Button>
+                  <Popconfirm
+                    title="确定要删除此销售记录吗?"
+                    description="删除后无法恢复!"
+                    icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
+                    onConfirm={() => handleDelete(record.id)}
+                    okText="是"
+                    cancelText="否"
+                  >
+                    <Button 
+                      type="text" 
+                      danger 
+                      icon={<DeleteOutlined />}
+                      className="hover:bg-red-50"
+                    >
+                      删除
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
       <div className={`text-center py-10 ${className}`}>
-        <Spin size="large" />
+        <Spin size="large" tip="载入中..." />
       </div>
     );
   }
@@ -217,8 +292,15 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
   if (!data || !data.items || data.items.length === 0) {
     return (
       <div className={`text-center py-10 ${className}`}>
-        <p className="text-gray-500 mb-4">暂无销售记录</p>
-        <Button type="primary" onClick={() => router.push('/sales/data/new')}>
+        <Empty
+          description="暂无销售记录"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
+        <Button 
+          type="primary" 
+          onClick={() => router.push('/sales/data/new')}
+          className="mt-4 rounded-lg"
+        >
           添加销售记录
         </Button>
       </div>
@@ -227,20 +309,23 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
 
   return (
     <div className={className}>
-      <Table 
-        columns={columns}
-        dataSource={data.items}
-        rowKey="id"
-        pagination={false}
-        className="shadow rounded-md"
-        onChange={onChange}
-        scroll={{ x: isMobile ? 'max-content' : undefined }}
-        onRow={isMobile ? (record) => ({
-          onClick: () => router.push(`/sales/data/edit/${record.id}`)
-        }) : undefined}
-        rowClassName={isMobile ? "cursor-pointer hover:bg-gray-50" : ""}
-        showSorterTooltip={false}
-      />
+      {isMobile ? (
+        // 移动端卡片布局
+        <div className="p-3">
+          {renderMobileCards()}
+        </div>
+      ) : (
+        // 桌面端表格布局
+        <Table 
+          columns={desktopColumns}
+          dataSource={data.items}
+          rowKey="id"
+          pagination={false}
+          className="shadow rounded-md"
+          onChange={onChange}
+          showSorterTooltip={false}
+        />
+      )}
     </div>
   );
 };

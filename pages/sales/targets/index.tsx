@@ -472,7 +472,7 @@ const SalesTargetsPage: React.FC = () => {
           {/* 目标列表 */}
           <div className="mt-6">
             {isMobile ? (
-              <div className="bg-gray-50 rounded-none pt-3 px-1">
+              <div className="bg-gray-50 rounded-xl pt-3 px-3">
                 {isLoadingData ? (
                   <div className="flex justify-center items-center py-16">
                     <Spin size="default" tip="载入中..." />

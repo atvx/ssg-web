@@ -508,7 +508,7 @@ const TasksPage: React.FC = () => {
 
           {/* 任务列表 - 根据屏幕尺寸选择不同的渲染方式 */}
           {isMobile ? (
-            <div className="bg-gray-50 rounded-none">
+            <div className="bg-gray-50 rounded-xl">
               {isLoadingTasks ? (
                 <div className="flex justify-center items-center py-16">
                   <Spin size="default" tip="载入中..." />

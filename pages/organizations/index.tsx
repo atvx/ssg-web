@@ -338,53 +338,69 @@ const OrganizationsPage: React.FC = () => {
     const typeInfo = getOrgTypeInfo(item.org_type);
     
     return (
-      <Card 
+      <div 
         key={item.org_id} 
-        className="mb-3 rounded-xl shadow-md overflow-hidden"
-        bodyStyle={{ padding: 0 }}
+        className="mb-3 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-[0.98] transition-all duration-200"
       >
-        <div className={`px-4 py-3 flex justify-between items-center bg-${typeInfo.color}-50`}>
-          <div className="flex items-center">
-            {typeInfo.icon && <span className="mr-2">{typeInfo.icon}</span>}
-            <Tag color={typeInfo.color}>{typeInfo.label}</Tag>
-          </div>
-          <div className="text-xs text-gray-500">
-            ID: {item.org_id}
-          </div>
-        </div>
-        
-        <div className="p-4">
-          <div className="mb-3">
-            <div className="text-lg font-medium">{item.org_name}</div>
-            {item.parent_id && (
-              <div className="text-xs text-gray-500 mt-1">
-                上级机构: {getParentName(item.parent_id)}
+        <div className="flex items-center justify-between">
+          {/* 左侧主要信息 */}
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            {/* 类型图标 */}
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              item.org_type === 1 ? 'bg-blue-500' :
+              item.org_type === 2 ? 'bg-emerald-500' :
+              item.org_type === 3 ? 'bg-orange-500' :
+              'bg-gray-500'
+            }`}>
+              <span className="text-white text-lg">
+                {typeInfo.icon}
+              </span>
+            </div>
+            
+            {/* 机构信息 */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <h3 className="text-base font-semibold text-gray-900 truncate">
+                  {item.org_name}
+                </h3>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                  item.org_type === 1 ? 'bg-blue-100 text-blue-700' :
+                  item.org_type === 2 ? 'bg-emerald-100 text-emerald-700' :
+                  item.org_type === 3 ? 'bg-orange-100 text-orange-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {typeInfo.label}
+                </span>
               </div>
-            )}
+              
+              <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+                <span className="font-mono">#{item.org_id}</span>
+                {item.parent_id && (
+                  <span className="truncate">
+                    ↳ {getParentName(item.parent_id)}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           
-          <div className="flex justify-end border-t border-gray-100 pt-3">
-            <Space>
-              <Button 
-                type="text"
-                icon={<EditOutlined />}
-                onClick={() => router.push(`/organizations/edit/${item.org_id}`)}
-                className="text-blue-500"
-              >
-                编辑
-              </Button>
-              <Button 
-                type="text" 
-                danger 
-                icon={<DeleteOutlined />}
-                onClick={() => handleDelete(item.org_id)}
-              >
-                删除
-              </Button>
-            </Space>
+          {/* 右侧操作按钮 */}
+          <div className="flex items-center space-x-1 ml-3">
+            <button
+              onClick={() => router.push(`/organizations/edit/${item.org_id}`)}
+              className="w-8 h-8 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
+            >
+              <EditOutlined className="text-sm text-gray-600" />
+            </button>
+            <button
+              onClick={() => handleDelete(item.org_id)}
+              className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors duration-200"
+            >
+              <DeleteOutlined className="text-sm text-red-600" />
+            </button>
           </div>
         </div>
-      </Card>
+      </div>
     );
   };
 
@@ -459,7 +475,7 @@ const OrganizationsPage: React.FC = () => {
         <meta name="description" content="管理机构和组织结构" />
       </Head>
 
-      <div className={`py-4 md:py-6 ${isMobile ? 'px-3' : 'px-6'}`}>
+      <div className={`py-4 md:py-6 ${isMobile ? 'px-3' : 'px-6'} bg-gray-50 min-h-screen`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 md:gap-0">
           <div>
             <h1 className={`${isMobile ? 'text-xl' : 'text-2xl'} font-semibold text-gray-900`}>{title}</h1>
@@ -496,17 +512,20 @@ const OrganizationsPage: React.FC = () => {
 
         <div className="flex flex-col md:flex-row gap-4">
           {/* 左侧树形结构 */}
-          <div className={`${isMobile ? 'w-full' : 'w-64'} bg-white rounded-xl shadow-md overflow-hidden`}>
-            <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-medium">组织架构</h2>
-              <Button 
-                type="text"
-                icon={isTreeExpanded ? <ChevronDownIcon className="h-4 w-4" /> : <ChevronRightIcon className="h-4 w-4" />}
+          <div className={`${isMobile ? 'w-full mb-4' : 'w-64'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden`}>
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-base font-semibold text-gray-900">组织架构</h2>
+              <button
                 onClick={toggleTreeExpansion}
-                size="small"
-              />
+                className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
+              >
+                {isTreeExpanded ? 
+                  <ChevronDownIcon className="h-3 w-3 text-gray-600" /> : 
+                  <ChevronRightIcon className="h-3 w-3 text-gray-600" />
+                }
+              </button>
             </div>
-            <div className="p-2 max-h-[500px] overflow-auto">
+            <div className="p-3 max-h-[500px] overflow-auto">
               {isLoadingData ? (
                 <div className="flex justify-center py-8">
                   <Spin size="small" />
@@ -519,6 +538,7 @@ const OrganizationsPage: React.FC = () => {
                   onSelect={handleTreeSelect}
                   onExpand={(expandedKeys) => setExpandedKeys(expandedKeys)}
                   blockNode
+                  className="custom-tree"
                 />
               )}
             </div>
@@ -527,27 +547,27 @@ const OrganizationsPage: React.FC = () => {
           {/* 右侧内容区 */}
           <div className="flex-1">
             {/* 搜索筛选区 */}
-            <div className="bg-white p-4 rounded-xl shadow-md mb-4">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
               <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex flex-wrap items-center gap-3'}`}>
                 <Input 
-                  placeholder="机构名称" 
+                  placeholder="搜索机构名称" 
                   value={orgNameFilter}
                   onChange={(e) => setOrgNameFilter(e.target.value)}
-                  className={`${isMobile ? 'w-full' : 'w-48'} rounded-lg`}
+                  className={`${isMobile ? 'w-full h-10' : 'w-48'} rounded-xl border-gray-200`}
                   allowClear
                 />
                 <Input 
-                  placeholder="机构ID" 
+                  placeholder="搜索机构ID" 
                   value={orgCodeFilter}
                   onChange={(e) => setOrgCodeFilter(e.target.value)}
-                  className={`${isMobile ? 'w-full' : 'w-48'} rounded-lg`}
+                  className={`${isMobile ? 'w-full h-10' : 'w-48'} rounded-xl border-gray-200`}
                   allowClear
                 />
                 <Select 
-                  placeholder="机构类型" 
+                  placeholder="选择机构类型" 
                   value={selectedOrgType || undefined}
                   onChange={(value) => setSelectedOrgType(value)}
-                  className={`${isMobile ? 'w-full' : 'w-32'} rounded-lg`}
+                  className={`${isMobile ? 'w-full' : 'w-32'}`}
                   allowClear
                 >
                   <Option value="1">总部</Option>
@@ -559,31 +579,51 @@ const OrganizationsPage: React.FC = () => {
 
             {/* 组织列表 */}
             {isMobile ? (
-              <div className="bg-gray-50 rounded-none pt-3 px-1">
+              <div>
                 {isLoadingData ? (
-                  <div className="flex justify-center items-center py-16">
-                    <Spin size="default" tip="载入中..." />
+                  <div className="flex flex-col justify-center items-center py-20">
+                    <Spin size="large" />
+                    <p className="mt-4 text-gray-600 text-sm">载入中...</p>
                   </div>
                 ) : getPaginatedData().length > 0 ? (
-                  getPaginatedData().map(item => renderMobileCard(item))
+                  <div className="space-y-0">
+                    {getPaginatedData().map(item => renderMobileCard(item))}
+                  </div>
                 ) : (
-                  <Empty
-                    className="my-8" 
-                    description="暂无机构数据"
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  />
+                  <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-gray-100">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <HomeOutlined className="text-2xl text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">暂无机构数据</h3>
+                    <p className="text-gray-500 text-sm mb-6">
+                      还没有创建任何机构，点击上方按钮开始添加
+                    </p>
+                    <Button 
+                      type="primary" 
+                      icon={<PlusOutlined />} 
+                      onClick={() => router.push('/organizations/new')}
+                      className="rounded-xl"
+                      size="large"
+                    >
+                      创建第一个机构
+                    </Button>
+                  </div>
                 )}
                 
-                <div className="flex justify-center mt-4 mb-2">
-                  <Pagination
-                    current={currentPage}
-                    pageSize={pageSize}
-                    total={total}
-                    onChange={(page) => setCurrentPage(page)}
-                    size="small"
-                    simple
-                  />
-                </div>
+                {getPaginatedData().length > 0 && (
+                  <div className="flex justify-center mt-6">
+                    <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-gray-100">
+                      <Pagination
+                        current={currentPage}
+                        pageSize={pageSize}
+                        total={total}
+                        onChange={(page) => setCurrentPage(page)}
+                        size="small"
+                        simple
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
