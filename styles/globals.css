@@ -137,8 +137,8 @@ a {
   
   /* 优化浮动按钮组 */
   .ant-float-btn-group .ant-float-btn {
-    width: 56px;
-    height: 56px;
+    width: 42px;
+    height: 42px;
   }
   
   /* 防止输入框放大 */

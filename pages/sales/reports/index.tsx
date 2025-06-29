@@ -42,6 +42,7 @@ const SalesReportsPage: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportedUrl, setExportedUrl] = useState<string | null>(null);
+  const [exportedFileName, setExportedFileName] = useState<string>('');
   const [selectedFileType, setSelectedFileType] = useState<FileType>('png');
   const [messageApi, contextHolder] = message.useMessage();
   const [retryCount, setRetryCount] = useState(0);
@@ -62,6 +63,7 @@ const SalesReportsPage: React.FC = () => {
         setIsExporting(true);
         setError(null);
         setExportedUrl(null);
+        setExportedFileName('');
         
         if (isRetry) {
           setIsRetrying(true);
@@ -76,19 +78,35 @@ const SalesReportsPage: React.FC = () => {
           file_type: fileType
         });
         
-        if (response.data.success && response.data.data) {
-          const url = response.data.data.files?.img_url || 
-                     response.data.data.files?.pdf_url || 
-                     response.data.data.files?.excel_url ||
-                     response.data.data.url;
+        if (response.data.success && response.data.data && response.data.data.files) {
+          // 根据文件类型获取对应的URL
+          let url: string | undefined;
+          switch (fileType) {
+            case 'excel':
+              url = response.data.data.files.excel_url;
+              break;
+            case 'pdf':
+              url = response.data.data.files.pdf_url;
+              break;
+            case 'png':
+              url = response.data.data.files.img_url;
+              break;
+          }
                      
           if (url) {
+            // 从URL中提取文件名，如果失败则使用默认名称
+            const urlParts = url.split('/');
+            const originalFileName = urlParts[urlParts.length - 1] || `销售报表_${date}.${fileType === 'png' ? 'png' : fileType === 'pdf' ? 'pdf' : 'xlsx'}`;
+            
+            // 保存导出结果
             setExportedUrl(url);
+            setExportedFileName(originalFileName);
+            
             messageApi.success(`${fileType.toUpperCase()}报表导出成功！`);
             setRetryCount(0);
           } else {
-            setError('导出报表成功，但未找到下载链接');
-            messageApi.warning('导出报表成功，但未找到下载链接');
+            setError(`导出报表成功，但未找到${fileType.toUpperCase()}文件下载链接`);
+            messageApi.warning(`导出报表成功，但未找到${fileType.toUpperCase()}文件下载链接`);
           }
         } else {
           const errorMsg = response.data.message || '导出报表失败';
@@ -217,8 +235,14 @@ const SalesReportsPage: React.FC = () => {
                       type="date"
                       value={date}
                       onChange={handleMobileDateInput}
-                      className="w-full rounded-lg py-2 px-3"
-                      style={{ height: '40px' }}
+                      className="w-full rounded-lg py-2 px-3 text-center"
+                      style={{ 
+                        height: '48px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '16px'
+                      }}
                     />
                   </div>
                 ) : (
@@ -288,7 +312,7 @@ const SalesReportsPage: React.FC = () => {
               <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-600 mb-2">格式说明：</p>
                 <div className="space-y-1 text-xs text-gray-500">
-                  <div>• <span className="font-medium text-green-600">Excel</span>：完整数据表格，支持进一步编辑分析（生成时间较长）</div>
+                  <div>• <span className="font-medium text-green-600">Excel</span>：完整数据表格（生成时间较长）</div>
                   <div>• <span className="font-medium text-red-600">PDF</span>：适合打印和分享的正式报表文档</div>
                   <div>• <span className="font-medium text-blue-600">图片</span>：快速预览，便于分享和查看（推荐）</div>
                 </div>
@@ -309,22 +333,7 @@ const SalesReportsPage: React.FC = () => {
                 }
               </Button>
               
-              {/* 导出状态提示 */}
-              {isExporting && (
-                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center text-blue-600">
-                    <Spin size="small" className="mr-2" />
-                    <span className="text-sm">
-                      {selectedFileType === 'excel' && '正在生成Excel文件，预计需要30-90秒...'}
-                      {selectedFileType === 'pdf' && '正在生成PDF文件，预计需要15-45秒...'}
-                      {selectedFileType === 'png' && '正在生成图片文件，预计需要10-30秒...'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-500 mt-1">
-                    请耐心等待，大文件生成需要更多时间
-                  </p>
-                </div>
-              )}
+
             </div>
           </ConfigProvider>
         </Card>
@@ -363,31 +372,61 @@ const SalesReportsPage: React.FC = () => {
         )}
 
         {/* 导出结果 */}
-        {exportedUrl && (
-          <Card className="mt-6 shadow-md rounded-xl">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">导出成功</h2>
-            <Button 
-              type="primary"
-              href={exportedUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="rounded-lg"
-            >
-              查看/下载报表
-            </Button>
-            
-            {selectedFileType === 'png' && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-900 mb-2">预览</h3>
-                <img 
-                  src={exportedUrl} 
-                  alt="报表预览" 
-                  className="max-w-full h-auto border rounded-lg shadow-sm"
-                />
+        {exportedUrl && exportedFileName && (
+          <Card className="mt-6 shadow-md rounded-xl border-green-200 bg-green-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-medium text-green-800 mb-2">导出成功</h2>
+                <p className="text-sm text-green-600 mb-3">
+                  {selectedFileType.toUpperCase()}文件已准备就绪，点击下载链接即可保存到本地
+                </p>
               </div>
-            )}
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 flex items-center justify-center mr-3 rounded-lg bg-green-100">
+                    {selectedFileType === 'excel' && (
+                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    )}
+                    {selectedFileType === 'pdf' && (
+                      <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    {selectedFileType === 'png' && (
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{exportedFileName}</p>
+                    <p className="text-sm text-gray-500">
+                      {selectedFileType === 'excel' && 'Excel数据表格'}
+                      {selectedFileType === 'pdf' && 'PDF文档'}
+                      {selectedFileType === 'png' && 'PNG图片'}
+                    </p>
+                  </div>
+                </div>
+                
+                <Button 
+                  type="primary"
+                  href={exportedUrl} 
+                  download={exportedFileName}
+                  className="rounded-lg"
+                  icon={<DocumentArrowDownIcon className="w-4 h-4" />}
+                >
+                  下载
+                </Button>
+              </div>
+            </div>
           </Card>
         )}
+
       </div>
     </Layout>
   );

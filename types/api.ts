@@ -68,6 +68,7 @@ export interface SalesRecord {
   sales_cart_count: number;
   avg_income_amt: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface SalesRecordCreate {

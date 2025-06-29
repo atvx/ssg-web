@@ -475,7 +475,9 @@ const SalesTargetsPage: React.FC = () => {
               <div className="bg-gray-50 rounded-xl pt-3 px-3">
                 {isLoadingData ? (
                   <div className="flex justify-center items-center py-16">
-                    <Spin size="default" tip="载入中..." />
+                    <Spin size="default">
+                      <div className="mt-4 text-gray-500">载入中...</div>
+                    </Spin>
                   </div>
                                  ) : targets.length > 0 ? (
                    targets.map(item => {
@@ -524,7 +526,7 @@ const SalesTargetsPage: React.FC = () => {
                        <Card 
                          key={item.id} 
                          className="mb-3 rounded-xl shadow-md overflow-hidden"
-                         bodyStyle={{ padding: 0 }}
+                         styles={{ body: { padding: 0 } }}
                        >
                          <div className={`px-4 py-3 flex justify-between items-center ${statusBg}`}>
                            <div className="flex items-center">

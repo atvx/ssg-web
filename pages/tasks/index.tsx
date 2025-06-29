@@ -518,7 +518,9 @@ const TasksPage: React.FC = () => {
             <div className="bg-gray-50 rounded-xl">
               {isLoadingTasks ? (
                 <div className="flex justify-center items-center py-16">
-                  <Spin size="default" tip="载入中..." />
+                  <Spin size="default">
+                    <div className="mt-4 text-gray-500">载入中...</div>
+                  </Spin>
                 </div>
               ) : tasks.length > 0 ? (
                 <div className="px-3 pt-3">
