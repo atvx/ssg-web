@@ -22,6 +22,7 @@ import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVerification } from '@/contexts/VerificationContext';
 import Layout from '@/components/layout/Layout';
 import SalesDataTable from '@/components/sales/SalesDataTable';
 import { salesAPI, orgsAPI, authAPI } from '@/lib/api';
@@ -31,40 +32,6 @@ import { PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
-
-// WebSocket地址
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws';
-
-// 配置message，取消所有验证码相关提示
-const originalSuccessMethod = message.success;
-const originalErrorMethod = message.error;
-
-// 自定义函数来过滤验证码相关消息
-const shouldFilterMessage = (content: any): boolean => {
-  return typeof content === 'string' && 
-    (content.toLowerCase().includes('verification') || 
-     content.includes('验证码'));
-};
-
-// 添加过滤功能，保持原有函数签名
-const filteredSuccessMethod: typeof message.success = (content, duration?, onClose?) => {
-  if (shouldFilterMessage(content)) {
-    // 返回一个空的MessageType对象
-    return 'filtered-message' as any;
-  }
-  return originalSuccessMethod(content, duration, onClose);
-};
-
-const filteredErrorMethod: typeof message.error = (content, duration?, onClose?) => {
-  if (shouldFilterMessage(content)) {
-    // 返回一个空的MessageType对象
-    return 'filtered-message' as any;
-  }
-  return originalErrorMethod(content, duration, onClose);
-};
-
-message.success = filteredSuccessMethod;
-message.error = filteredErrorMethod;
 
 const { Option, OptGroup } = Select;
 const { RangePicker } = DatePicker;
@@ -93,6 +60,7 @@ const useIsMobile = () => {
 
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { connectWebSocket } = useVerification();
   const router = useRouter();
   const [salesRecords, setSalesRecords] = useState<SalesRecordListResponse | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -110,20 +78,6 @@ const SalesDataPage: React.FC = () => {
   useEffect(() => {
     setPageSize(isMobile ? 20 : 10);
   }, [isMobile]);
-  
-  // WebSocket相关状态
-  const wsRef = useRef<WebSocket | null>(null);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [needVerification, setNeedVerification] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState('');
-  const [verificationTaskId, setVerificationTaskId] = useState('');
-  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
-  const [verificationModalVisible, setVerificationModalVisible] = useState(false);
-  const [countDown, setCountDown] = useState(60);
-  const [countDownActive, setCountDownActive] = useState(false);
-  const countDownRef = useRef<NodeJS.Timeout | null>(null);
-  const verificationInputRefs = useRef<any[]>([]);
-  const [phoneNumber, setPhoneNumber] = useState('未知手机号');
   
   // 同步对话框相关状态
   const [syncModalVisible, setSyncModalVisible] = useState(false);
@@ -279,131 +233,7 @@ const SalesDataPage: React.FC = () => {
     setSyncModalVisible(true);
   };
 
-  // 连接WebSocket
-  const connectWebSocket = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return; // 已连接，不需要重复连接
-    }
-    
-    // 创建WebSocket连接
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
-    
-    // 连接成功事件
-    ws.onopen = () => {
-      setWsConnected(true);
-      // 订阅验证频道
-      ws.send(JSON.stringify({
-        type: 'subscribe',
-        channels: ['verification']
-      }));
-    };
-    
-    // 接收消息事件
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        // 处理需要验证的情况
-        if (data.type === 'verification_needed') {
-          setVerificationTaskId(data.task_id);
-          setVerificationMessage(data.message);
-          
-          // 提取手机号
-          let extractedPhone = '未知手机号';
-          if (data.message) {
-            // 尝试匹配 "请为手机 xxx 输入" 格式
-            const phoneMatch = data.message.match(/请为手机\s+(.*?)\s+输入/);
-            if (phoneMatch && phoneMatch[1]) {
-              extractedPhone = phoneMatch[1];
-            }
-          }
-          setPhoneNumber(extractedPhone);
-          
-          setVerificationModalVisible(true);
-          setVerificationCode(['', '', '', '', '', '']); // 重置验证码输入
-          
-          // 初始化引用数组
-          verificationInputRefs.current = Array(6).fill(null);
-          
-          // 启动倒计时
-          setCountDown(60);
-          setCountDownActive(true);
-          
-          if (countDownRef.current) {
-            clearInterval(countDownRef.current);
-          }
-          
-          countDownRef.current = setInterval(() => {
-            setCountDown((prev) => {
-              if (prev <= 1) {
-                clearInterval(countDownRef.current as NodeJS.Timeout);
-                setCountDownActive(false);
-                setVerificationModalVisible(false); // 倒计时结束关闭对话框
-                closeWebSocket(); // 关闭WebSocket连接
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-          
-          // 自动聚焦到第一个输入框
-          setTimeout(() => {
-            if (verificationInputRefs.current[0]) {
-              verificationInputRefs.current[0].focus();
-            }
-          }, 100);
-        }
-        
-        // 处理验证成功的情况
-        if (data.type === 'verification_success') {
-          // 这个逻辑已经移到handleVerificationSubmit中处理
-          // 这里可以作为备用处理，但通常不会执行到
-          if (verificationModalVisible) {
-            setVerificationModalVisible(false);
-            
-            if (countDownRef.current) {
-              clearInterval(countDownRef.current);
-              setCountDownActive(false);
-            }
-            
-            message.success('验证码验证成功');
-          }
-        }
-      } catch (error) {
-        console.error('解析WebSocket消息失败:', error);
-      }
-    };
-    
-    // 错误事件
-    ws.onerror = (error) => {
-      setWsConnected(false);
-    };
-    
-    // 关闭事件
-    ws.onclose = () => {
-      setWsConnected(false);
-    };
-  };
-  
-  // 关闭WebSocket连接
-  const closeWebSocket = () => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-      setWsConnected(false);
-    }
-  };
-  
-  // 组件卸载时关闭WebSocket
-  useEffect(() => {
-    return () => {
-      closeWebSocket();
-      if (countDownRef.current) {
-        clearInterval(countDownRef.current);
-      }
-    };
-  }, []);
+
 
   // 处理同步数据提交
   const handleSyncSubmit = async (values: any) => {
@@ -450,88 +280,7 @@ const SalesDataPage: React.FC = () => {
     }
   };
   
-  // 处理验证码输入变化
-  const handleVerificationInputChange = (index: number, value: string) => {
-    // 如果倒计时已结束，不允许输入
-    if (!countDownActive) {
-      return;
-    }
-    
-    if (value.length > 1) {
-      value = value.charAt(0); // 只取第一个字符
-    }
-    
-    // 更新验证码数组
-    const newCode = [...verificationCode];
-    newCode[index] = value;
-    setVerificationCode(newCode);
-    
-    // 如果输入了字符，且不是最后一个输入框，则自动聚焦到下一个输入框
-    if (value && index < 5) {
-      const nextInput = verificationInputRefs.current[index + 1];
-      if (nextInput) {
-        nextInput.focus();
-      }
-    }
-    
-    // 检查是否所有输入框都已填写，如果是则立即关闭对话框并在后台提交
-    if (newCode.every(c => c) && newCode.length === 6) {
-      // 立即关闭对话框
-      setVerificationModalVisible(false);
-      
-      // 清理验证码相关状态
-      setVerificationCode(['', '', '', '', '', '']);
-      const taskId = verificationTaskId; // 保存任务ID用于后台提交
-      setVerificationTaskId('');
-      setVerificationMessage('');
-      
-      // 清理倒计时
-      if (countDownRef.current) {
-        clearInterval(countDownRef.current);
-        setCountDownActive(false);
-      }
-      
-      // 关闭WebSocket连接
-      closeWebSocket();
-      
-      // 在后台提交验证码（不阻塞UI）
-      handleVerificationSubmit(newCode.join(''), taskId);
-    }
-  };
-  
-  // 处理验证码输入框键盘事件
-  const handleVerificationKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // 如果按下退格键，且当前输入框为空，则聚焦到前一个输入框
-    if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
-      const prevInput = verificationInputRefs.current[index - 1];
-      if (prevInput) {
-        prevInput.focus();
-      }
-    }
-  };
 
-  // 处理验证码提交
-  const handleVerificationSubmit = async (code: string, taskId: string) => {
-    if (!taskId || !code || code.length !== 6) {
-      return;
-    }
-    
-    try {
-      // 直接使用apiClient提交验证码，不使用authAPI，避免全局消息
-      const response = await apiClient.post(`/api/auth/verification/${taskId}/submit`, { code });
-      
-      if (response.data.success) {
-        // 显示成功提示
-        message.success('验证码验证成功');
-      } else {
-        // 验证失败提示
-        message.error('验证码错误');
-      }
-    } catch (error) {
-      // 提交失败提示
-      message.error('验证码提交失败');
-    }
-  };
 
   // 按父子关系对机构列表进行分组
   const groupOrgsByParent = () => {
@@ -917,71 +666,7 @@ const SalesDataPage: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* 验证码对话框 */}
-      <Modal
-        title="验证码确认"
-        open={verificationModalVisible}
-        onCancel={() => {
-          // 允许用户随时关闭对话框
-          setVerificationModalVisible(false);
-          
-          // 清理验证码相关状态
-          setVerificationCode(['', '', '', '', '', '']);
-          setVerificationTaskId('');
-          setVerificationMessage('');
-          
-          // 清理倒计时
-          if (countDownRef.current) {
-            clearInterval(countDownRef.current);
-            setCountDownActive(false);
-          }
-          
-          // 关闭WebSocket连接
-          closeWebSocket();
-        }}
-        footer={null}
-        width={isMobile ? "90%" : 420}
-        maskClosable={true}
-        className="rounded-lg"
-        closable={true}
-      >
-        <div className="text-center mb-4">
-          <p className="mb-2">请输入发送到 <strong>{phoneNumber}</strong> 的验证码</p>
-          <p className="text-sm text-gray-500 hidden">
-            输入完成后将自动提交，{countDown} 秒后自动关闭
-          </p>
-        </div>
-        
-        <div className="flex justify-center gap-2 mb-6">
-          {verificationCode.map((digit, index) => (
-            <Input
-              key={index}
-              ref={(el) => verificationInputRefs.current[index] = el}
-              value={digit}
-              onChange={(e) => handleVerificationInputChange(index, e.target.value)}
-              onKeyDown={(e) => handleVerificationKeyDown(index, e)}
-              className="w-10 h-12 text-center text-xl rounded-lg"
-              maxLength={1}
-              autoFocus={index === 0}
-              disabled={!countDownActive}
-            />
-          ))}
-        </div>
-        
-        {/* 倒计时提示 */}
-        <div className="text-center">
-          {countDownActive && (
-            <div className="flex items-center justify-center text-blue-600">
-              <div className="animate-pulse mr-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-              </div>
-              <p className="text-sm">
-                倒计时 <span className="font-mono text-lg font-semibold">{countDown}</span> 秒后，自动关闭
-              </p>
-            </div>
-          )}
-        </div>
-      </Modal>
+
     </Layout>
   );
 };

@@ -2,6 +2,8 @@ import React from 'react';
 import Head from 'next/head';
 import { AppProps } from 'next/app';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { VerificationProvider } from '@/contexts/VerificationContext';
+import VerificationModal from '@/components/ui/VerificationModal';
 import dynamic from 'next/dynamic';
 import '../styles/globals.css';
 
@@ -27,7 +29,10 @@ function MyApp({ Component, pageProps }: NextAppProps) {
         <meta name="theme-color" content="#0ea5e9" />
       </Head>
       <AuthProvider>
-        {getLayout(<Component {...pageProps} />)}
+        <VerificationProvider>
+          {getLayout(<Component {...pageProps} />)}
+          <VerificationModal />
+        </VerificationProvider>
       </AuthProvider>
     </>
   );

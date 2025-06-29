@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVerification } from '@/contexts/VerificationContext';
 import Layout from '@/components/layout/Layout';
 import { tasksAPI, salesAPI } from '@/lib/api';
 import { Task } from '@/types/api';
@@ -73,6 +74,7 @@ const useIsMobile = () => {
 
 const TasksPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const { connectWebSocket } = useVerification();
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
@@ -226,6 +228,11 @@ const TasksPage: React.FC = () => {
       
       if (values.platform && values.platform !== 'all') {
         params.platform = values.platform;
+      }
+      
+      // 如果平台是美团或所有平台，连接WebSocket以处理可能的验证码需求
+      if (values.platform === 'meituan' || values.platform === 'all') {
+        connectWebSocket();
       }
       
       // 调用创建任务API
