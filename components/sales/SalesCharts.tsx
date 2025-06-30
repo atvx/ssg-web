@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Card, Radio } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Radio, Spin, Alert } from 'antd';
+import { salesAPI } from '@/lib/api';
 import WeeklySalesChart from './WeeklySalesChart';
 import DailyAverageChart from './DailyAverageChart';
 import WeeklyTripsChart from './WeeklyTripsChart';
@@ -7,83 +8,293 @@ import DailyTripsChart from './DailyTripsChart';
 
 interface SalesChartsProps {
   className?: string;
+  selectedDate?: string;
+}
+
+interface WarehouseData {
+  name: string;
+  car_count: number;
+  this_week_sales: number;
+  last_week_sales: number;
+  sales_wow_pct: number;
+  this_week_avg: number;
+  last_week_avg: number;
+  avg_wow_pct: number;
+  this_week_cart: number;
+  last_week_cart: number;
+  cart_wow_pct: number;
+  this_daily_cart: number;
+  last_daily_cart: number;
+  daily_cart_wow_pct: number;
+}
+
+interface ApiResponse {
+  query_date: string;
+  date_ranges: {
+    this_week: { start: string; end: string; label: string };
+    last_week: { start: string; end: string; label: string };
+  };
+  warehouses: WarehouseData[];
 }
 
 type CategoryType = 'warehouse' | 'market';
 
-const SalesCharts: React.FC<SalesChartsProps> = ({ className = '' }) => {
+const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate }) => {
   const [category, setCategory] = useState<CategoryType>('warehouse');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [apiData, setApiData] = useState<ApiResponse | null>(null);
 
-  // 总计数据
-  const total = {
-    "vehicle_config": "130",
-    "week_sales_current": 218265,
-    "week_sales_previous": 222922,
-    "week_sales_change": "-2.1",
-    "daily_avg_sales_current": 394,
-    "daily_avg_sales_previous": 414,
-    "daily_avg_sales_change": "-4.7",
-    "week_trips_current": 554,
-    "week_trips_previous": 539,
-    "week_trips_change": "2.8",
-    "daily_avg_trips_current": 79,
-    "daily_avg_trips_previous": 77,
-    "daily_avg_trips_change": "2.8"
+  // 获取数据
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // 使用传入的日期或当前日期作为查询日期
+        const queryDate = selectedDate || new Date().toISOString().split('T')[0];
+        const response = await salesAPI.getWeeklyStats({ query_date: queryDate });
+        
+        if (response.data.success) {
+          setApiData(response.data.data);
+        } else {
+          setError(response.data.message || '获取数据失败');
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.message || '网络请求失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedDate]);
+
+  // 计算总计数据
+  const calculateTotals = () => {
+    if (!apiData) return null;
+    
+    const warehouses = apiData.warehouses;
+    const totalVehicleConfig = warehouses.reduce((sum, w) => sum + w.car_count, 0);
+    const totalWeekSalesCurrent = warehouses.reduce((sum, w) => sum + w.this_week_sales, 0);
+    const totalWeekSalesPrevious = warehouses.reduce((sum, w) => sum + w.last_week_sales, 0);
+    const salesChange = totalWeekSalesPrevious > 0 ? 
+      ((totalWeekSalesCurrent - totalWeekSalesPrevious) / totalWeekSalesPrevious * 100) : 0;
+    
+    const totalDailyAvgCurrent = warehouses.reduce((sum, w) => sum + w.this_week_avg, 0);
+    const totalDailyAvgPrevious = warehouses.reduce((sum, w) => sum + w.last_week_avg, 0);
+    const avgChange = totalDailyAvgPrevious > 0 ? 
+      ((totalDailyAvgCurrent - totalDailyAvgPrevious) / totalDailyAvgPrevious * 100) : 0;
+    
+    const totalWeekTripsCurrent = warehouses.reduce((sum, w) => sum + w.this_week_cart, 0);
+    const totalWeekTripsPrevious = warehouses.reduce((sum, w) => sum + w.last_week_cart, 0);
+    const tripsChange = totalWeekTripsPrevious > 0 ? 
+      ((totalWeekTripsCurrent - totalWeekTripsPrevious) / totalWeekTripsPrevious * 100) : 0;
+    
+    const totalDailyTripsCurrent = warehouses.reduce((sum, w) => sum + w.this_daily_cart, 0);
+    const totalDailyTripsPrevious = warehouses.reduce((sum, w) => sum + w.last_daily_cart, 0);
+    const dailyTripsChange = totalDailyTripsPrevious > 0 ? 
+      ((totalDailyTripsCurrent - totalDailyTripsPrevious) / totalDailyTripsPrevious * 100) : 0;
+
+    return {
+      vehicle_config: totalVehicleConfig.toString(),
+      week_sales_current: totalWeekSalesCurrent,
+      week_sales_previous: totalWeekSalesPrevious,
+      week_sales_change: salesChange.toFixed(1),
+      daily_avg_sales_current: Math.round(totalDailyAvgCurrent),
+      daily_avg_sales_previous: Math.round(totalDailyAvgPrevious),
+      daily_avg_sales_change: avgChange.toFixed(1),
+      week_trips_current: totalWeekTripsCurrent,
+      week_trips_previous: totalWeekTripsPrevious,
+      week_trips_change: tripsChange.toFixed(1),
+      daily_avg_trips_current: totalDailyTripsCurrent,
+      daily_avg_trips_previous: totalDailyTripsPrevious,
+      daily_avg_trips_change: dailyTripsChange.toFixed(1)
+    };
   };
 
-  // 仓库数据 - 真实数据
-  const warehouseData = {
-    names: [
-      '重庆江北仓', '重庆渝北仓', '重庆三郎仓', '重庆大学城仓', '重庆北部仓',
-      '重庆南岸仓', '重庆中央公园仓', '重庆北部新区仓',
-      '昆明龙泉仓', '昆明广卫仓', '昆明世博仓', '成都高新仓'
-    ],
-    weeklySales: {
-      current: [29732, 49543, 30901, 7972, 16930, 21542, 14134, 4175, 10681, 14953, 10328, 7373],
-      previous: [31545, 48648, 35289, 9971, 12152, 23088, 9658, 2732, 14047, 18891, 7697, 9205],
-      change: [-5.7, 1.8, -12.4, -20.0, 39.3, -6.7, 46.3, 52.8, -24.0, -20.8, 34.2, -19.9]
-    },
-    dailyAverage: {
-      current: [358, 627, 572, 266, 368, 449, 615, 278, 237, 234, 272, 254],
-      previous: [375, 593, 654, 369, 357, 491, 508, 341, 260, 266, 192, 341],
-      change: [-4.5, 5.7, -12.4, -28.0, 3.0, -8.6, 20.9, -18.4, -8.7, -12.0, 41.7, -25.4]
-    },
-    weeklyTrips: {
-      current: [83, 79, 54, 30, 46, 48, 23, 15, 45, 64, 38, 29],
-      previous: [76, 82, 54, 27, 34, 47, 19, 8, 54, 71, 40, 27],
-      change: [9.2, -3.7, 0.0, 11.1, 35.3, 2.1, 21.1, 87.5, -16.7, -9.9, -5.0, 7.4]
-    },
-    dailyTrips: {
-      current: [12, 11, 8, 4, 7, 7, 3, 2, 6, 9, 5, 4],
-      previous: [11, 12, 8, 4, 5, 7, 3, 1, 8, 10, 6, 4],
-      change: [9.2, -3.7, 0.0, 11.1, 35.3, 2.1, 21.1, 87.5, -16.7, -9.9, -5.0, 7.4]
-    }
+  const total = calculateTotals();
+
+  // 处理仓库数据
+  const processWarehouseData = () => {
+    if (!apiData) return null;
+    
+    const warehouses = apiData.warehouses;
+    return {
+      names: warehouses.map(w => w.name),
+      weeklySales: {
+        current: warehouses.map(w => w.this_week_sales),
+        previous: warehouses.map(w => w.last_week_sales),
+        change: warehouses.map(w => parseFloat(w.sales_wow_pct.toFixed(1)))
+      },
+      dailyAverage: {
+        current: warehouses.map(w => w.this_week_avg),
+        previous: warehouses.map(w => w.last_week_avg),
+        change: warehouses.map(w => parseFloat(w.avg_wow_pct.toFixed(1)))
+      },
+      weeklyTrips: {
+        current: warehouses.map(w => w.this_week_cart),
+        previous: warehouses.map(w => w.last_week_cart),
+        change: warehouses.map(w => parseFloat(w.cart_wow_pct.toFixed(1)))
+      },
+      dailyTrips: {
+        current: warehouses.map(w => w.this_daily_cart),
+        previous: warehouses.map(w => w.last_daily_cart),
+        change: warehouses.map(w => parseFloat(w.daily_cart_wow_pct.toFixed(1)))
+      }
+    };
   };
 
-  // 市场数据 - 模拟数据
-  const marketData = {
-    names: ['重庆市场', '昆明市场', '成都市场'],
-    weeklySales: {
-      current: [215929, 35962, 7373],
-      previous: [205083, 40635, 9205],
-      change: [5.3, -11.5, -19.9]
-    },
-    dailyAverage: {
-      current: [3085, 514, 254],
-      previous: [2930, 580, 341],
-      change: [5.3, -11.5, -25.4]
-    },
-    weeklyTrips: {
-      current: [378, 147, 29],
-      previous: [347, 165, 27],
-      change: [8.9, -10.9, 7.4]
-    },
-    dailyTrips: {
-      current: [54, 21, 4],
-      previous: [50, 24, 4],
-      change: [8.0, -12.5, 0.0]
-    }
+  // 处理市场数据（按城市聚合）
+  const processMarketData = () => {
+    if (!apiData) return null;
+    
+    const warehouses = apiData.warehouses;
+    const marketMap = new Map<string, any>();
+    
+    warehouses.forEach(warehouse => {
+      let marketName = '';
+      if (warehouse.name.includes('重庆')) {
+        marketName = '重庆市场';
+      } else if (warehouse.name.includes('昆明')) {
+        marketName = '昆明市场';
+      } else if (warehouse.name.includes('成都')) {
+        marketName = '成都市场';
+      } else {
+        marketName = '其他市场';
+      }
+      
+      if (!marketMap.has(marketName)) {
+        marketMap.set(marketName, {
+          this_week_sales: 0,
+          last_week_sales: 0,
+          this_week_avg: 0,
+          last_week_avg: 0,
+          this_week_cart: 0,
+          last_week_cart: 0,
+          this_daily_cart: 0,
+          last_daily_cart: 0,
+          count: 0
+        });
+      }
+      
+      const market = marketMap.get(marketName);
+      market.this_week_sales += warehouse.this_week_sales;
+      market.last_week_sales += warehouse.last_week_sales;
+      market.this_week_avg += warehouse.this_week_avg;
+      market.last_week_avg += warehouse.last_week_avg;
+      market.this_week_cart += warehouse.this_week_cart;
+      market.last_week_cart += warehouse.last_week_cart;
+      market.this_daily_cart += warehouse.this_daily_cart;
+      market.last_daily_cart += warehouse.last_daily_cart;
+      market.count += 1;
+    });
+    
+    const markets = Array.from(marketMap.entries()).map(([name, data]) => ({
+      name,
+      ...data
+    }));
+    
+    return {
+      names: markets.map(m => m.name),
+      weeklySales: {
+        current: markets.map(m => m.this_week_sales),
+        previous: markets.map(m => m.last_week_sales),
+        change: markets.map(m => 
+          m.last_week_sales > 0 ? 
+          parseFloat(((m.this_week_sales - m.last_week_sales) / m.last_week_sales * 100).toFixed(1)) : 0
+        )
+      },
+      dailyAverage: {
+        current: markets.map(m => Math.round(m.this_week_avg)),
+        previous: markets.map(m => Math.round(m.last_week_avg)),
+        change: markets.map(m => 
+          m.last_week_avg > 0 ? 
+          parseFloat(((m.this_week_avg - m.last_week_avg) / m.last_week_avg * 100).toFixed(1)) : 0
+        )
+      },
+      weeklyTrips: {
+        current: markets.map(m => m.this_week_cart),
+        previous: markets.map(m => m.last_week_cart),
+        change: markets.map(m => 
+          m.last_week_cart > 0 ? 
+          parseFloat(((m.this_week_cart - m.last_week_cart) / m.last_week_cart * 100).toFixed(1)) : 0
+        )
+      },
+      dailyTrips: {
+        current: markets.map(m => m.this_daily_cart),
+        previous: markets.map(m => m.last_daily_cart),
+        change: markets.map(m => 
+          m.last_daily_cart > 0 ? 
+          parseFloat(((m.this_daily_cart - m.last_daily_cart) / m.last_daily_cart * 100).toFixed(1)) : 0
+        )
+      }
+    };
   };
+
+  // 早期返回处理加载和错误状态
+  if (loading) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <Card title="各仓周环比" className="mb-6" variant="outlined">
+          <div className="flex justify-center items-center py-20">
+            <Spin size="large" tip="加载中..." />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <Card title="各仓周环比" className="mb-6" variant="outlined">
+          <Alert
+            message="数据加载失败"
+            description={error}
+            type="error"
+            showIcon
+            className="m-4"
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  if (!apiData || !total) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <Card title="各仓周环比" className="mb-6" variant="outlined">
+          <Alert
+            message="暂无数据"
+            description="无法获取统计数据，请稍后重试"
+            type="warning"
+            showIcon
+            className="m-4"
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  const warehouseData = processWarehouseData();
+  const marketData = processMarketData();
+
+  if (!warehouseData || !marketData) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <Card title="各仓周环比" className="mb-6" variant="outlined">
+          <Alert
+            message="数据处理失败"
+            description="无法处理统计数据，请稍后重试"
+            type="warning"
+            showIcon
+            className="m-4"
+          />
+        </Card>
+      </div>
+    );
+  }
 
   const currentData = category === 'warehouse' ? warehouseData : marketData;
   const categoryText = category === 'warehouse' ? '仓' : '市场';

@@ -143,9 +143,9 @@ const DailyAverageChart: React.FC<DailyAverageChartProps> = ({
         xAxisIndex: 1,
         data: changeData,
         itemStyle: {
-          color: (params: any) => params.data >= 0 ? '#e74c3c' : '#9b59b6'
+          color: (params: any) => params.data >= 0 ? '#27ae60' : '#e74c3c'
         },
-        lineStyle: { width: 3, shadowBlur: 5, shadowColor: 'rgba(0,0,0,0.2)' },
+        lineStyle: { color: '#5dade2', width: 3, shadowBlur: 5, shadowColor: 'rgba(93, 173, 226, 0.3)' },
         symbol: 'circle',
         symbolSize: 10,
         label: {

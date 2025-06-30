@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import dynamic from 'next/dynamic';
 import { Spin, Card, Typography, Space, Row, Col } from 'antd';
 import { 
   DatabaseOutlined, 
@@ -10,12 +9,7 @@ import {
   SyncOutlined,
   RightOutlined
 } from '@ant-design/icons';
-
-// 动态导入布局组件以提升性能
-const Layout = dynamic(() => import('@/components/layout/Layout'), {
-  ssr: true,
-  loading: () => <div className="h-screen flex items-center justify-center"><Spin size="large" /></div>,
-});
+import Layout from '@/components/layout/Layout';
 
 const { Title, Paragraph, Text } = Typography;
 

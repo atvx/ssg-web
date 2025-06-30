@@ -236,6 +236,21 @@ export const salesAPI = {
   exportDailyReport: (params?: { date?: string; file_type?: 'excel' | 'pdf' | 'png' }) => {
     return exportApiClient.get<APIResponse>('/api/sales/daily/export', { params });
   },
+  
+  // 获取周度统计数据
+  getWeeklyStats: (params?: { query_date?: string }) => {
+    return apiClient.get<APIResponse>('/api/sales/weekly-stats', { params });
+  },
+
+  // 获取月度统计数据
+  getMonthlyStats: (params?: { query_date?: string }) => {
+    return apiClient.get<APIResponse>('/api/sales/monthly-stats', { params });
+  },
+
+  // 获取销售记录统计数据
+  getSalesRecordsStats: (params?: { query_date?: string }) => {
+    return apiClient.get<APIResponse>('/api/sales/sales-records-stats', { params });
+  },
 };
 
 // 任务相关API

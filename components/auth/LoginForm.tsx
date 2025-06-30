@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Login } from '@/types/api';
-import { Form, Input, Button, Alert } from 'antd';
+import { Form, Input, Button, Alert, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 
 // 判断是否为移动设备的Hook
@@ -31,17 +31,54 @@ const useIsMobile = () => {
 const LoginForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
   const [form] = Form.useForm();
   const isMobile = useIsMobile();
+
+  // 简单的解密函数（与 AuthContext 中的相同）
+  const decrypt = (encrypted: string): string => {
+    try {
+      return decodeURIComponent(atob(encrypted));
+    } catch {
+      return '';
+    }
+  };
+
+  // 加载保存的用户名和密码
+  useEffect(() => {
+    const savedUser = localStorage.getItem('rememberedUser');
+    const savedPass = localStorage.getItem('rememberedPass');
+    const autoLogin = localStorage.getItem('autoLogin');
+    
+    if (savedUser && savedPass && autoLogin === 'true') {
+      try {
+        const username = decrypt(savedUser);
+        const password = decrypt(savedPass);
+        
+        if (username && password) {
+          form.setFieldsValue({
+            username,
+            password
+          });
+          setRememberMe(true);
+        }
+      } catch (error) {
+        // 如果解密失败，清除存储的数据
+        localStorage.removeItem('rememberedUser');
+        localStorage.removeItem('rememberedPass');
+        localStorage.removeItem('autoLogin');
+      }
+    }
+  }, [form]);
 
   const onSubmit = async (data: Login) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const success = await login(data);
+      const success = await login(data, rememberMe);
       if (success) {
         router.push('/');
       } else {
@@ -105,6 +142,16 @@ const LoginForm: React.FC = () => {
             placeholder="密码"
             className="rounded-lg" 
           />
+        </Form.Item>
+
+        <Form.Item className="mb-4">
+          <Checkbox 
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="text-sm"
+          >
+            记住密码
+          </Checkbox>
         </Form.Item>
 
         <Form.Item className="mb-0">
