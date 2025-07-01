@@ -40,7 +40,7 @@ interface SalesDataTableProps {
 const SalesDataTable: React.FC<SalesDataTableProps> = ({ 
   data, 
   isLoading = false, 
-  className = '',
+  className = 'bg-white rounded-xl shadow-md overflow-hidden',
   onDelete,
   onChange
 }) => {
@@ -68,21 +68,29 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
   // 桌面端列配置
   const desktopColumns: ColumnsType<SalesRecord> = [
     {
-      title: '仓库/日期',
-      key: 'warehouse_date',
-      render: (_, record) => (
-        <div>
-          <div className="font-medium">{record.warehouse_name || '-'}</div>
-          <div className="text-xs text-gray-500 mt-1">{record.date || '-'}</div>
-        </div>
-      ),
-      sorter: (a, b) => {
-        // 先按仓库名排序，如果仓库名相同，再按日期排序
-        if (a.warehouse_name !== b.warehouse_name) {
-          return (a.warehouse_name || '').localeCompare(b.warehouse_name || '');
-        }
-        return new Date(a.date || '').getTime() - new Date(b.date || '').getTime();
+      title: '序号',
+      key: 'index',
+      width: 60,
+      render: (_, __, index) => {
+        const currentPage = data?.current || 1;
+        const pageSize = data?.pageSize || 10;
+        return (currentPage - 1) * pageSize + index + 1;
       },
+    },
+    {
+      title: '仓库',
+      dataIndex: 'warehouse_name',
+      key: 'warehouse_name',
+      render: (text) => text || '-',
+      sorter: (a, b) => (a.warehouse_name || '').localeCompare(b.warehouse_name || ''),
+      sortDirections: ['ascend', 'descend'],
+    },
+    {
+      title: '日期',
+      dataIndex: 'date',
+      key: 'date',
+      render: (text) => text || '-',
+      sorter: (a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime(),
       sortDirections: ['ascend', 'descend'],
     },
     {
@@ -139,39 +147,7 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
       sortDirections: ['ascend', 'descend'],
       responsive: ['lg'], // 只在大屏幕上显示
     },
-    {
-      title: '操作',
-      key: 'action',
-      render: (_, record) => (
-        <div className="flex space-x-2">
-          <Button 
-            type="link" 
-            size="small" 
-            onClick={() => router.push(`/sales/data/edit/${record.id}`)}
-            icon={<EditOutlined />}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除此销售记录吗?"
-            description="删除后无法恢复!"
-            icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
-            onConfirm={() => handleDelete(record.id)}
-            okText="是"
-            cancelText="否"
-          >
-            <Button 
-              type="link" 
-              danger 
-              size="small" 
-              icon={<DeleteOutlined />}
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </div>
-      ),
-    },
+
   ];
 
   // 移动端卡片渲染
@@ -180,7 +156,7 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
       return (
         <Empty
           className="my-8"
-          description="暂无销售记录"
+          description="暂无数据"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       );
@@ -317,16 +293,9 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
     return (
       <div className={`text-center py-10 ${className}`}>
         <Empty
-          description="暂无销售记录"
+          description="暂无数据"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
-        <Button 
-          type="primary" 
-          onClick={() => router.push('/sales/data/new')}
-          className="mt-4 rounded-lg"
-        >
-          添加销售记录
-        </Button>
       </div>
     );
   }
@@ -335,8 +304,38 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
     <div className={className}>
       {isMobile ? (
         // 移动端卡片布局
-        <div className="p-3">
+        <div>
           {renderMobileCards()}
+          {/* 移动端合计显示 */}
+          {data.summary && (
+            <div className="bg-gray-50 rounded-xl border border-gray-200 mt-4 p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">合计</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    ¥{parseFloat(data.summary.income_amt || '0').toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">营业额</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    {parseInt(data.summary.sales_cart_count || '0').toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">车次</div>
+                </div>
+                
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    ¥{parseFloat(data.summary.avg_income_amt || '0').toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">车均</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         // 桌面端表格布局
@@ -348,6 +347,49 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
           className="shadow rounded-md"
           onChange={onChange}
           showSorterTooltip={false}
+          scroll={{ 
+            y: data.items && data.items.length > 15 ? 600 : undefined 
+          }}
+          summary={() => {
+            if (!data.summary) return null;
+            
+            return (
+              <Table.Summary fixed>
+                <Table.Summary.Row>
+                  <Table.Summary.Cell index={0}>
+                    <div className="text-gray-500">--</div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={1}>
+                    <div className="font-medium text-gray-900">合计</div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={2}>
+                    <div className="text-gray-500">--</div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={3}>
+                    <div className="font-medium text-gray-900">
+                      ¥{parseFloat(data.summary.income_amt || '0').toLocaleString()}
+                    </div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={4}>
+                    <div className="font-medium text-gray-900">
+                      {parseInt(data.summary.sales_cart_count || '0').toLocaleString()}
+                    </div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={5}>
+                    <div className="font-medium text-gray-900">
+                      ¥{parseFloat(data.summary.avg_income_amt || '0').toLocaleString()}
+                    </div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={6}>
+                    <div className="text-gray-500">--</div>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={7}>
+                    <div className="text-gray-500">--</div>
+                  </Table.Summary.Cell>
+                </Table.Summary.Row>
+              </Table.Summary>
+            );
+          }}
         />
       )}
     </div>

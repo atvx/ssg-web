@@ -94,6 +94,11 @@ export interface SalesRecordListResponse {
   total: number;
   current?: number;
   pageSize?: number;
+  summary?: {
+    income_amt: string;
+    sales_cart_count: string;
+    avg_income_amt: string;
+  };
 }
 
 // 销售目标相关类型

@@ -211,7 +211,7 @@ const AppLayout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* 页面内容 */}
         <Content className="min-h-[calc(100vh-64px)] bg-gray-50 md:bg-white">
-          <div className="h-full md:m-4 md:p-6 md:bg-white md:rounded-lg md:shadow-sm">
+          <div className="h-full md:m-4 md:bg-white md:rounded-lg md:shadow-sm">
             {children}
           </div>
         </Content>

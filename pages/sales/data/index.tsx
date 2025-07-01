@@ -16,8 +16,10 @@ import {
   Input,
   Mentions,
   Alert,
-  FloatButton
+  FloatButton,
+  Cascader
 } from 'antd';
+import type { CascaderProps } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
@@ -33,7 +35,7 @@ import { PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
 
-const { Option, OptGroup } = Select;
+const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 // 判断是否为移动设备的Hook
@@ -70,13 +72,13 @@ const SalesDataPage: React.FC = () => {
   const [form] = Form.useForm();
   const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(isMobile ? 20 : 10);
-  const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(null);
-  const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(null);
+  const [pageSize, setPageSize] = useState(10);
+  const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(dayjs());
   
   // 当设备类型变化时更新页面大小
   useEffect(() => {
-    setPageSize(isMobile ? 20 : 10);
+    setPageSize(10);
   }, [isMobile]);
   
   // 同步对话框相关状态
@@ -116,6 +118,19 @@ const SalesDataPage: React.FC = () => {
     return org ? org.org_name : '';
   };
 
+  // 将机构数据转换为Cascader所需的options格式
+  const getCascaderOptions = () => {
+    const orgGroups = groupOrgsByParent();
+    return orgGroups.map(group => ({
+      value: group.parent.org_id,
+      label: group.parent.org_name,
+      children: group.children.map(child => ({
+        value: child.org_id,
+        label: child.org_name
+      }))
+    }));
+  };
+
   // 加载销售记录数据
   const loadSalesRecords = async (values?: any) => {
     if (!isAuthenticated) return;
@@ -130,9 +145,11 @@ const SalesDataPage: React.FC = () => {
       // 添加筛选条件
       if (values) {
         if (values.org_id) {
-          // 使用org_name作为warehouse参数
-          const warehouseName = getOrgNameById(values.org_id);
-          params.warehouse = warehouseName;
+          // Cascader返回的是数组格式，取最后一个值（可能是父机构或子机构ID）
+          const orgId = Array.isArray(values.org_id) ? values.org_id[values.org_id.length - 1] : values.org_id;
+          // 使用org_name作为name参数
+          const warehouseName = getOrgNameById(orgId);
+          params.name = warehouseName;
         }
         if (values.dateRange && values.dateRange.length === 2) {
           params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
@@ -143,15 +160,17 @@ const SalesDataPage: React.FC = () => {
       const response = await salesAPI.getSalesRecords(params);
       
       if (response.data.success) {
-        // 根据截图API响应格式，构造与组件期望匹配的数据结构
-        const items = Array.isArray(response.data.data) ? response.data.data : [];
-        const total = response.data.total || items.length;
+        // 根据新的API响应格式，构造与组件期望匹配的数据结构
+        const items = response.data.data?.items || [];
+        const total = response.data.data?.pageInfo?.totalCount || items.length;
+        const summary = response.data.data?.summary;
         
         const recordsData: SalesRecordListResponse = {
           items,
           total,
           current: currentPage,
-          pageSize: pageSize
+          pageSize: pageSize,
+          summary
         };
 
         setSalesRecords(recordsData);
@@ -170,9 +189,20 @@ const SalesDataPage: React.FC = () => {
   // 初始加载数据
   useEffect(() => {
     if (isAuthenticated) {
-      loadSalesRecords();
+      // 设置默认日期为当天
+      const today = dayjs();
+      form.setFieldsValue({
+        dateRange: [today, today]
+      });
+      setStartDate(today);
+      setEndDate(today);
+      
+      // 使用当天日期加载数据
+      loadSalesRecords({
+        dateRange: [today, today]
+      });
     }
-  }, [isAuthenticated]); // 仅在认证状态变化时重新加载
+  }, [isAuthenticated, form]); // 添加form作为依赖项
 
   // 处理表单查询
   const handleFormSubmit = (values: any) => {
@@ -206,11 +236,17 @@ const SalesDataPage: React.FC = () => {
   
   // 处理重置
   const handleReset = () => {
+    const today = dayjs();
     form.resetFields();
-    setStartDate(null);
-    setEndDate(null);
+    form.setFieldsValue({
+      dateRange: [today, today]
+    });
+    setStartDate(today);
+    setEndDate(today);
     setCurrentPage(1);
-    loadSalesRecords();
+    loadSalesRecords({
+      dateRange: [today, today]
+    });
   };
 
   // 处理刷新
@@ -339,9 +375,11 @@ const SalesDataPage: React.FC = () => {
     // 添加筛选条件
     if (values) {
       if (values.org_id) {
-        // 使用org_name作为warehouse参数
-        const warehouseName = getOrgNameById(values.org_id);
-        params.warehouse = warehouseName;
+        // Cascader返回的是数组格式，取最后一个值（可能是父机构或子机构ID）
+        const orgId = Array.isArray(values.org_id) ? values.org_id[values.org_id.length - 1] : values.org_id;
+        // 使用org_name作为name参数
+        const warehouseName = getOrgNameById(orgId);
+        params.name = warehouseName;
       }
       if (values.dateRange && values.dateRange.length === 2) {
         params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
@@ -353,14 +391,16 @@ const SalesDataPage: React.FC = () => {
     salesAPI.getSalesRecords(params)
       .then(response => {
         if (response.data.success) {
-          const items = Array.isArray(response.data.data) ? response.data.data : [];
-          const total = response.data.total || items.length;
+          const items = response.data.data?.items || [];
+          const total = response.data.data?.pageInfo?.totalCount || items.length;
+          const summary = response.data.data?.summary;
           
           const recordsData: SalesRecordListResponse = {
             items,
             total,
             current: page,
-            pageSize: size
+            pageSize: size,
+            summary
           };
           
           setSalesRecords(recordsData);
@@ -447,22 +487,19 @@ const SalesDataPage: React.FC = () => {
               label="机构"
               className={isMobile ? "w-full mb-0" : "mb-0"}
             >
-              <Select 
-                placeholder="选择机构" 
-                allowClear 
-                showSearch
-                optionFilterProp="children"
-                className={isMobile ? "w-full" : "w-40"}
+              <Cascader
+                options={getCascaderOptions()}
+                placeholder="选择机构"
+                allowClear
+                showSearch={{ filter: (inputValue, path) => 
+                  path.some(option => option.label && option.label.toLowerCase().indexOf(inputValue.toLowerCase()) > -1)
+                }}
+                className={isMobile ? "w-full" : "w-56"}
                 size={isMobile ? "middle" : "middle"}
-              >
-                {orgGroups.map(group => (
-                  <OptGroup key={group.parent.org_id} label={group.parent.org_name}>
-                    {group.children.map(child => (
-                      <Option key={child.org_id} value={child.org_id}>{child.org_name}</Option>
-                    ))}
-                  </OptGroup>
-                ))}
-              </Select>
+                dropdownStyle={{ minWidth: '200px' }}
+                expandTrigger="hover"
+                changeOnSelect={true}
+              />
             </Form.Item>
             <Form.Item
               name="dateRange"
@@ -481,6 +518,7 @@ const SalesDataPage: React.FC = () => {
                     locale={zhCN.DatePicker}
                     inputReadOnly={true}
                     style={{ caretColor: 'transparent' }}
+                    defaultValue={dayjs()}
                   />
                   <span className="flex items-center text-gray-400">至</span>
                   <DatePicker 
@@ -493,6 +531,7 @@ const SalesDataPage: React.FC = () => {
                     locale={zhCN.DatePicker}
                     inputReadOnly={true}
                     style={{ caretColor: 'transparent' }}
+                    defaultValue={dayjs()}
                   />
                 </div>
               ) : (
@@ -504,6 +543,7 @@ const SalesDataPage: React.FC = () => {
                   locale={zhCN.DatePicker}
                   inputReadOnly={true}
                   style={{ caretColor: 'transparent' }}
+                  defaultValue={[dayjs(), dayjs()]}
                 />
               )}
             </Form.Item>
@@ -535,14 +575,14 @@ const SalesDataPage: React.FC = () => {
         )}
 
         {/* 销售数据表格 */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div>
           <SalesDataTable
             data={salesRecords}
             isLoading={isLoadingData}
             onChange={onTableChange}
             className="w-full"
           />
-          {!isMobile && (
+          {!isMobile && salesRecords && salesRecords.total > 10 && (
             <div className="flex justify-end p-4">
               <Pagination
                 current={currentPage}
@@ -555,6 +595,14 @@ const SalesDataPage: React.FC = () => {
                 size="default"
                 pageSizeOptions={["10", "20", "50", "100"]}
                 defaultPageSize={10}
+                locale={{
+                  items_per_page: ' 条/页',
+                  jump_to: '跳至',
+                  jump_to_confirm: '确定',
+                  page: '页',
+                  prev_page: '上一页',
+                  next_page: '下一页'
+                }}
               />
             </div>
           )}
@@ -572,10 +620,18 @@ const SalesDataPage: React.FC = () => {
               showTotal={(total) => `共 ${total} 条记录`}
               size="small"
               className="flex justify-center flex-wrap"
-              pageSizeOptions={["10", "20", "50"]}
-              defaultPageSize={20}
+              pageSizeOptions={["10", "20", "50", "100"]}
+              defaultPageSize={10}
               simple={false}
               showQuickJumper={false}
+              locale={{
+                items_per_page: ' 条/页',
+                jump_to: '跳至',
+                jump_to_confirm: '确定',
+                page: '页',
+                prev_page: '上一页',
+                next_page: '下一页'
+              }}
             />
           </div>
         )}
