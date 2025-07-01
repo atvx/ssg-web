@@ -25,7 +25,7 @@ const exportApiClient = axios.create({
 // 创建用于数据同步的特殊axios实例（超长超时时间）
 const syncApiClient = axios.create({
   baseURL: API_URL,
-  timeout: 360000, // 6分钟超时，用于数据同步
+  timeout: 600000, // 10分钟超时，用于数据同步
   headers: {
     'Content-Type': 'application/json',
   },

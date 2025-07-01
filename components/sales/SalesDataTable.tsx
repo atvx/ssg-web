@@ -35,6 +35,9 @@ interface SalesDataTableProps {
   className?: string;
   onDelete?: () => void;
   onChange?: (pagination: any, filters: any, sorter: any, extra: any) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 const SalesDataTable: React.FC<SalesDataTableProps> = ({ 
@@ -42,7 +45,10 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
   isLoading = false, 
   className = 'bg-white rounded-xl shadow-md overflow-hidden',
   onDelete,
-  onChange
+  onChange,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false
 }) => {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -163,118 +169,139 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
     }
 
     return (
-      <div className="space-y-3">
-        {data.items.map((record) => {
-          // 平台标签
-          let platformTag;
-          if (record.platform === 'duowei') {
-            platformTag = <Tag color="#2db7f5">多维</Tag>;
-          } else if (record.platform === 'meituan') {
-            platformTag = <Tag color="#ffd100" style={{ color: '#000000' }}>美团</Tag>;
-          } else {
-            platformTag = <Tag>{record.platform || '未知'}</Tag>;
-          }
-
-          return (
-            <div 
-              key={record.id} 
-              className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-all duration-200 overflow-hidden"
-            >
-              <div className="p-5">
-                {/* 头部：仓库名称和平台 */}
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-1">
-                      {record.warehouse_name || '-'}
-                    </h3>
-                    <div className="text-sm text-gray-500">
-                      {record.date || '-'}
-                    </div>
+      <div className="space-y-4">
+        {/* 合计卡片 */}
+        {data.summary && (
+          <div className="sticky top-0 z-10 transition-shadow duration-200 summary-card">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-4 text-white shadow-lg backdrop-blur-sm">
+              <div className="text-lg font-medium mb-3 flex items-center">
+                <span className="text-xl">合计</span>
+                <div className="ml-auto text-sm opacity-80">共 {data.total || 0} 条</div>
+              </div>
+              <div className="grid grid-cols-3 gap-6">
+                <div className="flex flex-col items-start">
+                  <div className="text-[28px] leading-[1.2] font-semibold tracking-tight">
+                    ¥{Number(data.summary.income_amt || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
                   </div>
-                  <div className="ml-4">
-                    {platformTag}
-                  </div>
+                  <div className="text-xs opacity-70">营业额</div>
                 </div>
-
-                {/* 数据展示 */}
-                <div className="grid grid-cols-3 gap-4 mb-5">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900 mb-1">
-                      ¥{parseFloat(record.income_amt || '0').toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">营业额</div>
+                <div className="flex flex-col items-center">
+                  <div className="text-[28px] leading-[1.2] font-semibold tracking-tight">
+                    {Number(data.summary.sales_cart_count || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
                   </div>
-                  
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900 mb-1">
-                      {record.sales_cart_count || '0'}
-                    </div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">车次</div>
-                  </div>
-                  
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-gray-900 mb-1">
-                      ¥{parseFloat(record.avg_income_amt || '0').toLocaleString()}
-                    </div>
-                    <div className="text-xs text-gray-500 uppercase tracking-wide">车均</div>
-                  </div>
+                  <div className="text-xs opacity-70">车次</div>
                 </div>
-
-                {/* 操作按钮 */}
-                <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                  <div className="flex items-center text-xs text-gray-400">
-                    <ClockCircleOutlined className="mr-1" />
-                    {record.updated_at ? (() => {
-                      const updateTime = new Date(record.updated_at);
-                      const today = new Date();
-                      const yesterday = new Date(today);
-                      yesterday.setDate(today.getDate() - 1);
-                      
-                      // 判断是否为今天
-                      if (updateTime.toDateString() === today.toDateString()) {
-                        return `更新于 ${format(updateTime, 'HH:mm')}`;
-                      }
-                      // 判断是否为昨天
-                      else if (updateTime.toDateString() === yesterday.toDateString()) {
-                        return `更新于 昨天 ${format(updateTime, 'HH:mm')}`;
-                      }
-                      // 判断是否为今年
-                      else if (updateTime.getFullYear() === today.getFullYear()) {
-                        return `更新于 ${format(updateTime, 'MM-dd HH:mm')}`;
-                      }
-                      // 去年或更早
-                      else {
-                        return `更新于 ${format(updateTime, 'yyyy-MM-dd HH:mm')}`;
-                      }
-                    })() : '更新于 -'}
+                <div className="flex flex-col items-end">
+                  <div className="text-[28px] leading-[1.2] font-semibold tracking-tight">
+                    ¥{Number(data.summary.avg_income_amt || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
                   </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => router.push(`/sales/data/edit/${record.id}`)}
-                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      <EditOutlined className="mr-1" />
-                      编辑
-                    </button>
-                    <Popconfirm
-                      title="确定要删除此销售记录吗?"
-                      description="删除后无法恢复!"
-                      icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
-                      onConfirm={() => handleDelete(record.id)}
-                      okText="是"
-                      cancelText="否"
-                    >
-                      <button className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-500 hover:text-red-600 transition-colors">
-                        <DeleteOutlined className="mr-1" />
-                        删除
-                      </button>
-                    </Popconfirm>
-                  </div>
+                  <div className="text-xs opacity-70">车均</div>
                 </div>
               </div>
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {/* 数据卡片列表 */}
+        <div className="space-y-3 mt-3">
+          {data.items.map((record, index) => (
+            <div 
+              key={`${record.id || ''}-${record.date}-${record.warehouse_name}`}
+              className="bg-white rounded-lg px-3 py-2.5 shadow-sm border border-gray-50"
+            >
+              {/* 第一行：仓库名称和日期 */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[15px] font-medium text-gray-900">
+                    {record.warehouse_name || '-'}
+                  </span>
+                  <Tag 
+                    color={record.platform === 'duowei' ? 'blue' : 'warning'}
+                    className="border-0 text-xs px-1.5 py-0 leading-[18px] h-[18px] m-0"
+                  >
+                    {record.platform === 'duowei' ? '多维' : '美团'}
+                  </Tag>
+                </div>
+                <div className="text-xs text-gray-400">
+                  {record.date}
+                </div>
+              </div>
+
+              {/* 第二行：数据展示 */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <div className="text-base font-medium text-gray-900">
+                    ¥{Number(record.income_amt || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </div>
+                  <div className="text-[11px] text-gray-500">营业额</div>
+                </div>
+                <div>
+                  <div className="text-base font-medium text-gray-900">
+                    {Number(record.sales_cart_count || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
+                  </div>
+                  <div className="text-[11px] text-gray-500">车次</div>
+                </div>
+                <div>
+                  <div className="text-base font-medium text-gray-900">
+                    ¥{Number(record.avg_income_amt || 0).toLocaleString('zh-CN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </div>
+                  <div className="text-[11px] text-gray-500">车均</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 加载状态和提示 */}
+        <div 
+          ref={onLoadMore && hasMore ? (node) => {
+            if (node) {
+              const observer = new IntersectionObserver(
+                ([entry]) => {
+                  if (entry.isIntersecting && !isLoadingMore && hasMore) {
+                    onLoadMore();
+                  }
+                },
+                { 
+                  threshold: 0.1,
+                  rootMargin: '100px 0px'
+                }
+              );
+              observer.observe(node);
+              return () => observer.disconnect();
+            }
+          } : undefined}
+          className="h-16 flex items-center justify-center"
+        >
+          {isLoadingMore && (
+            <span className="text-sm text-gray-400">正在加载...</span>
+          )}
+          {!isLoadingMore && !hasMore && data.items.length > 0 && (
+            <div className="flex items-center justify-center w-full py-2 text-gray-400">
+              <div className="flex-1 h-[1px] bg-gray-200"></div>
+              <span className="mx-4 whitespace-nowrap text-sm">没有更多数据了</span>
+              <div className="flex-1 h-[1px] bg-gray-200"></div>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -303,40 +330,7 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
   return (
     <div className={className}>
       {isMobile ? (
-        // 移动端卡片布局
-        <div>
-          {renderMobileCards()}
-          {/* 移动端合计显示 */}
-          {data.summary && (
-            <div className="bg-gray-50 rounded-xl border border-gray-200 mt-4 p-5">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">合计</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">
-                    ¥{parseFloat(data.summary.income_amt || '0').toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">营业额</div>
-                </div>
-                
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">
-                    {parseInt(data.summary.sales_cart_count || '0').toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">车次</div>
-                </div>
-                
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">
-                    ¥{parseFloat(data.summary.avg_income_amt || '0').toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">车均</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        renderMobileCards()
       ) : (
         // 桌面端表格布局
         <Table 
@@ -348,14 +342,15 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
           onChange={onChange}
           showSorterTooltip={false}
           scroll={{ 
+            x: 'max-content',
             y: data.items && data.items.length > 15 ? 600 : undefined 
           }}
           summary={() => {
             if (!data.summary) return null;
             
             return (
-              <Table.Summary fixed>
-                <Table.Summary.Row>
+              <Table.Summary fixed="top">
+                <Table.Summary.Row className="bg-blue-50">
                   <Table.Summary.Cell index={0}>
                     <div className="text-gray-500">--</div>
                   </Table.Summary.Cell>
@@ -367,17 +362,26 @@ const SalesDataTable: React.FC<SalesDataTableProps> = ({
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={3}>
                     <div className="font-medium text-gray-900">
-                      ¥{parseFloat(data.summary.income_amt || '0').toLocaleString()}
+                      ¥{Number(data.summary.income_amt || 0).toLocaleString('zh-CN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={4}>
                     <div className="font-medium text-gray-900">
-                      {parseInt(data.summary.sales_cart_count || '0').toLocaleString()}
+                      {Number(data.summary.sales_cart_count || 0).toLocaleString('zh-CN', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                      })}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={5}>
                     <div className="font-medium text-gray-900">
-                      ¥{parseFloat(data.summary.avg_income_amt || '0').toLocaleString()}
+                      ¥{Number(data.summary.avg_income_amt || 0).toLocaleString('zh-CN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                     </div>
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={6}>
