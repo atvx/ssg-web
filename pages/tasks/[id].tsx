@@ -24,7 +24,8 @@ import {
   Badge,
   Avatar,
   Timeline,
-  Empty
+  Empty,
+  message
 } from 'antd';
 import { 
   CheckCircleOutlined, 
@@ -39,9 +40,11 @@ import {
   UserOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
-  CodeOutlined
+  CodeOutlined,
+  CopyOutlined
 } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
 
 const { Title, Text, Paragraph } = Typography;
 const { confirm } = Modal;
@@ -144,6 +147,9 @@ const TaskDetailPage: React.FC = () => {
     fetchTaskDetail();
   };
 
+  // 移动端下拉刷新
+  usePullToRefresh(handleRefresh, isMobile);
+
   // 获取任务状态颜色和图标
   const getStatusInfo = (status: string) => {
     switch(status) {
@@ -216,6 +222,31 @@ const TaskDetailPage: React.FC = () => {
     }
   };
 
+  // 复制到剪贴板
+  const handleCopy = (content: any) => {
+    try {
+      const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+      navigator.clipboard.writeText(text);
+      message.success('已复制到剪贴板');
+    } catch (err) {
+      message.error('复制失败');
+    }
+  };
+
+  // 任务类型中文映射
+  const getTaskTypeName = (type?: string) => {
+    switch (type) {
+      case 'fetch_meituan':
+        return '美团';
+      case 'fetch_duowei':
+        return '多维';
+      case 'fetch_all':
+        return '所有平台';
+      default:
+        return type || '--';
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
@@ -267,15 +298,17 @@ const TaskDetailPage: React.FC = () => {
               <Title level={isMobile ? 3 : 2} style={{ margin: 0 }}>任务详情</Title>
             </div>
             <Space wrap={isMobile} size={isMobile ? "small" : "middle"} className="self-end md:self-auto">
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={handleRefresh}
-                loading={isLoadingTask}
-                size="middle"
-                className="rounded-lg flex items-center"
-              >
-                刷新
-              </Button>
+              {!isMobile && (
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  onClick={handleRefresh}
+                  loading={isLoadingTask}
+                  size="middle"
+                  className="rounded-lg flex items-center"
+                >
+                  刷新
+                </Button>
+              )}
               <Button 
                 danger 
                 icon={<DeleteOutlined />} 
@@ -331,7 +364,7 @@ const TaskDetailPage: React.FC = () => {
                             {statusInfo.text}
                           </div>
                           <div className="text-gray-500 text-xs">
-                            {task.task_type}
+                            {getTaskTypeName(task.task_type)}
                           </div>
                         </div>
                       </div>
@@ -394,6 +427,11 @@ const TaskDetailPage: React.FC = () => {
                       <span>任务参数</span>
                     </div>
                   }
+                  extra={
+                    <Button type="link" icon={<CopyOutlined />} onClick={() => handleCopy(task.params)}>
+                      复制
+                    </Button>
+                  }
                   className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
                   bodyStyle={isMobile ? { padding: '12px' } : {}}
                 >
@@ -413,6 +451,11 @@ const TaskDetailPage: React.FC = () => {
                       <FileTextOutlined className="mr-2 text-green-500" /> 
                       <span>任务结果</span>
                     </div>
+                  }
+                  extra={
+                    <Button type="link" icon={<CopyOutlined />} onClick={() => handleCopy(task.result)}>
+                      复制
+                    </Button>
                   }
                   className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
                   bodyStyle={isMobile ? { padding: '12px' } : {}}

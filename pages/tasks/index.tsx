@@ -42,6 +42,7 @@ import type { ColumnsType } from 'antd/es/table';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -190,6 +191,9 @@ const TasksPage: React.FC = () => {
     fetchTasks();
   };
   
+  // 移动端下拉刷新
+  usePullToRefresh(handleRefreshAndKeepPosition, isMobile);
+  
   // 在任务加载完成后恢复滚动位置
   useEffect(() => {
     if (!isLoadingTasks && scrollPosition > 0) {
@@ -273,12 +277,27 @@ const TasksPage: React.FC = () => {
     }
   };
 
+  // 任务类型中文映射
+  const getTaskTypeName = (type?: string) => {
+    switch (type) {
+      case 'fetch_meituan':
+        return '美团';
+      case 'fetch_duowei':
+        return '多维';
+      case 'fetch_all':
+        return '所有平台';
+      default:
+        return type || '--';
+    }
+  };
+
   // 表格列定义
   const columns: ColumnsType<Task> = [
     {
       title: '任务类型',
       dataIndex: 'task_type',
       key: 'task_type',
+      render: (text) => getTaskTypeName(text),
     },
     {
       title: '状态',
@@ -401,7 +420,7 @@ const TasksPage: React.FC = () => {
         
         <div className="p-4">
           <div className="flex justify-between items-center mb-3">
-            <div className="font-medium text-base">{item.task_type}</div>
+            <div className="font-medium text-base">{getTaskTypeName(item.task_type)}</div>
             {item.progress !== undefined && (
               <Badge 
                 status="processing" 
@@ -491,15 +510,17 @@ const TasksPage: React.FC = () => {
               >
                 创建任务
               </Button>
-              <Button 
-                icon={<SyncOutlined />} 
-                onClick={handleRefreshAndKeepPosition}
-                loading={isLoadingTasks}
-                size={isMobile ? "middle" : "middle"}
-                className="rounded-lg"
-              >
-                刷新
-              </Button>
+              {!isMobile && (
+                <Button 
+                  icon={<SyncOutlined />} 
+                  onClick={handleRefreshAndKeepPosition}
+                  loading={isLoadingTasks}
+                  size="middle"
+                  className="rounded-lg"
+                >
+                  刷新
+                </Button>
+              )}
             </Space>
           </div>
 
