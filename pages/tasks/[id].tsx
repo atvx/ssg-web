@@ -276,12 +276,17 @@ const TaskDetailPage: React.FC = () => {
         <div className="py-4 md:py-6 px-2 md:px-6">
           {/* 面包屑导航 - 仅在非移动端显示 */}
           {!isMobile && (
-            <Breadcrumb className="mb-4">
-              <Breadcrumb.Item>
-                <a onClick={() => router.push('/tasks')}>任务中心</a>
-              </Breadcrumb.Item>
-              <Breadcrumb.Item>任务详情</Breadcrumb.Item>
-            </Breadcrumb>
+            <Breadcrumb 
+              className="mb-4"
+              items={[
+                {
+                  title: <a onClick={() => router.push('/tasks')}>任务中心</a>
+                },
+                {
+                  title: '任务详情'
+                }
+              ]}
+            />
           )}
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
@@ -433,7 +438,7 @@ const TaskDetailPage: React.FC = () => {
                     </Button>
                   }
                   className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
                 >
                   <div className="overflow-x-auto">
                     <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
@@ -458,7 +463,7 @@ const TaskDetailPage: React.FC = () => {
                     </Button>
                   }
                   className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
                 >
                   <div className="overflow-x-auto">
                     <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
@@ -478,7 +483,7 @@ const TaskDetailPage: React.FC = () => {
                     </div>
                   }
                   className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  bodyStyle={isMobile ? { padding: '12px' } : {}}
+                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
                 >
                   <Alert
                     message="任务执行失败"

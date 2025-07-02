@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { format } from 'date-fns';
@@ -85,8 +85,24 @@ const TasksPage: React.FC = () => {
   
   // 创建任务相关状态
   const [createTaskModalVisible, setCreateTaskModalVisible] = useState(false);
-  const [createTaskForm] = Form.useForm();
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [form] = Form.useForm();
+
+  // 处理模态框关闭
+  const handleModalClose = () => {
+    form.resetFields();
+    setCreateTaskModalVisible(false);
+  };
+
+  // 在模态框打开时初始化表单
+  useEffect(() => {
+    if (createTaskModalVisible) {
+      form.setFieldsValue({
+        date: dayjs(),
+        platform: 'all'
+      });
+    }
+  }, [createTaskModalVisible, form]);
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -205,14 +221,6 @@ const TasksPage: React.FC = () => {
 
   // 处理创建任务按钮点击
   const handleCreateTaskClick = () => {
-    // 重置表单
-    createTaskForm.resetFields();
-    // 默认设置为今天日期
-    createTaskForm.setFieldsValue({
-      date: dayjs(),
-      platform: 'all'
-    });
-    // 显示创建任务对话框
     setCreateTaskModalVisible(true);
   };
 
@@ -545,7 +553,11 @@ const TasksPage: React.FC = () => {
                 </div>
               ) : tasks.length > 0 ? (
                 <div className="px-3 pt-3">
-                  {tasks.map(task => renderTaskListItem(task))}
+                  {tasks.map(task => (
+                    <div key={task.id}>
+                      {renderTaskListItem(task)}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <Empty
@@ -591,17 +603,18 @@ const TasksPage: React.FC = () => {
       <Modal
         title="创建任务"
         open={createTaskModalVisible}
-        onCancel={() => setCreateTaskModalVisible(false)}
+        onCancel={handleModalClose}
         footer={null}
         width={isMobile ? "90%" : 520}
-        destroyOnClose
+        destroyOnHidden
         maskClosable={false}
         className="rounded-lg"
       >
         <Form
-          form={createTaskForm}
+          form={form}
           layout="vertical"
           onFinish={handleCreateTaskSubmit}
+          preserve={false}
         >
           <Form.Item
             name="date"
@@ -631,7 +644,7 @@ const TasksPage: React.FC = () => {
           
           <div className="flex justify-end gap-2 mt-6">
             <Button 
-              onClick={() => setCreateTaskModalVisible(false)}
+              onClick={handleModalClose}
               className="rounded-lg"
               size="middle"
             >

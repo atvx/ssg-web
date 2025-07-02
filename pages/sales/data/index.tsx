@@ -30,35 +30,17 @@ import SalesDataTable from '@/components/sales/SalesDataTable';
 import { salesAPI, orgsAPI, authAPI } from '@/lib/api';
 import apiClient from '@/lib/api'; // 导入原始API客户端实例
 import { SalesRecordListResponse, OrgListItem } from '@/types/api';
-import { PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, SyncOutlined, VerticalAlignTopOutlined } from '@ant-design/icons';
+import { useInView } from 'react-intersection-observer';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileSalesTable from '@/components/sales/MobileSalesTable';
+import DesktopSalesTable from '@/components/sales/DesktopSalesTable';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-
-// 判断是否为移动设备的Hook
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    // 初始检查
-    checkIsMobile();
-    
-    // 监听窗口大小变化
-    window.addEventListener('resize', checkIsMobile);
-    
-    // 清理函数
-    return () => window.removeEventListener('resize', checkIsMobile);
-  }, []);
-  
-  return isMobile;
-};
 
 const SalesDataPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -75,6 +57,14 @@ const SalesDataPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [startDate, setStartDate] = useState<dayjs.Dayjs | null>(dayjs());
   const [endDate, setEndDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.5, // 当元素出现50%时触发
+    rootMargin: '100px 0px', // 提前100px触发
+  });
+  const [showBackTop, setShowBackTop] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false); // 添加表格局部加载状态
   
   // 当设备类型变化时更新页面大小
   useEffect(() => {
@@ -85,7 +75,6 @@ const SalesDataPage: React.FC = () => {
   const [syncModalVisible, setSyncModalVisible] = useState(false);
   const [syncForm] = Form.useForm();
   const [isSyncing, setIsSyncing] = useState(false);
-
 
   // 如果用户未登录，重定向到登录页
   useEffect(() => {
@@ -131,49 +120,97 @@ const SalesDataPage: React.FC = () => {
     }));
   };
 
+  // 计算总页数
+  const getTotalPages = () => {
+    if (!salesRecords?.total) return 0;
+    return Math.ceil(salesRecords.total / pageSize);
+  };
+
   // 加载销售记录数据
-  const loadSalesRecords = async (values?: any) => {
+  const loadSalesRecords = async (values?: any, loadMore: boolean = false, isPagination: boolean = false) => {
     if (!isAuthenticated) return;
     
     try {
-      setIsLoadingData(true);
+      // 根据不同加载类型设置不同的加载状态
+      if (isPagination) {
+        setTableLoading(true);
+      } else if (!loadMore) {
+        setIsLoadingData(true);
+        // 清空现有数据，只在首次加载或刷新时执行
+        setSalesRecords(null);
+      } else {
+        setIsLoadingMore(true);
+      }
+
       const params: any = { 
-        skip: (currentPage - 1) * pageSize, 
-        limit: pageSize 
+        skip: loadMore ? (salesRecords?.items?.length || 0) : 0,
+        limit: values?.pageSize || pageSize 
       };
 
       // 添加筛选条件
       if (values) {
         if (values.org_id) {
-          // Cascader返回的是数组格式，取最后一个值（可能是父机构或子机构ID）
           const orgId = Array.isArray(values.org_id) ? values.org_id[values.org_id.length - 1] : values.org_id;
-          // 使用org_name作为name参数
           const warehouseName = getOrgNameById(orgId);
           params.name = warehouseName;
         }
         if (values.dateRange && values.dateRange.length === 2) {
           params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
           params.end_date = format(values.dateRange[1].toDate(), 'yyyy-MM-dd');
+        } else if (!values.dateRange && startDate && endDate) {
+          params.start_date = format(startDate.toDate(), 'yyyy-MM-dd');
+          params.end_date = format(endDate.toDate(), 'yyyy-MM-dd');
         }
+      } else if (startDate && endDate) {
+        params.start_date = format(startDate.toDate(), 'yyyy-MM-dd');
+        params.end_date = format(endDate.toDate(), 'yyyy-MM-dd');
       }
 
       const response = await salesAPI.getSalesRecords(params);
       
       if (response.data.success) {
-        // 根据新的API响应格式，构造与组件期望匹配的数据结构
         const items = response.data.data?.items || [];
-        const total = response.data.data?.pageInfo?.totalCount || items.length;
+        const total = response.data.data?.pageInfo?.totalCount || 0;
         const summary = response.data.data?.summary;
         
-        const recordsData: SalesRecordListResponse = {
-          items,
+        // 计算是否还有更多数据
+        const currentItemCount = loadMore ? (salesRecords?.items?.length || 0) + items.length : items.length;
+        const hasMoreData = currentItemCount < total;
+        
+        // 构建新的数据记录
+        const newRecordsData: SalesRecordListResponse = {
+          items: loadMore ? [...(salesRecords?.items || []), ...items] : items,
           total,
-          current: currentPage,
-          pageSize: pageSize,
-          summary
+          current: loadMore ? currentPage + 1 : 1,
+          pageSize: values?.pageSize || pageSize,
+          summary: loadMore ? salesRecords?.summary : {
+            income_amt: summary?.income_amt?.toString() || '0',
+            sales_cart_count: summary?.sales_cart_count?.toString() || '0',
+            avg_income_amt: summary?.avg_income_amt?.toString() || '0'
+          }
         };
 
-        setSalesRecords(recordsData);
+        // 更新数据状态
+        setSalesRecords(prev => {
+          if (loadMore && prev) {
+            // 追加模式：合并现有数据和新数据
+            return {
+              ...prev,
+              items: [...prev.items, ...items],
+              total,
+              current: currentPage + 1
+            };
+          } else {
+            // 重置模式：使用新数据
+            return newRecordsData;
+          }
+        });
+
+        // 更新分页状态
+        if (!isPagination) {
+          setCurrentPage(loadMore ? currentPage + 1 : 1);
+          setHasMore(hasMoreData);
+        }
         setError(null);
       } else {
         setError('获取销售记录失败');
@@ -181,7 +218,13 @@ const SalesDataPage: React.FC = () => {
     } catch (err) {
       setError('获取销售记录失败，请稍后再试');
     } finally {
-      setIsLoadingData(false);
+      if (isPagination) {
+        setTableLoading(false);
+      } else if (!loadMore) {
+        setIsLoadingData(false);
+      } else {
+        setIsLoadingMore(false);
+      }
       setIsRefreshing(false);
     }
   };
@@ -206,7 +249,10 @@ const SalesDataPage: React.FC = () => {
 
   // 处理表单查询
   const handleFormSubmit = (values: any) => {
-    setCurrentPage(1); // 重置页码
+    // 重置所有分页相关状态
+    setHasMore(true);
+    setCurrentPage(1);
+    setIsLoadingMore(false);
     
     // 处理移动端日期选择
     if (isMobile && (startDate || endDate)) {
@@ -257,66 +303,20 @@ const SalesDataPage: React.FC = () => {
   };
 
   // 处理同步按钮点击
-  const handleSyncClick = () => {
-    // 重置同步表单
-    syncForm.resetFields();
-    // 默认设置为今天日期
-    syncForm.setFieldsValue({
-      date: dayjs(),
-      platform: 'all'
-    });
-    // 显示同步对话框
-    setSyncModalVisible(true);
-  };
-
-
-
-  // 处理同步数据提交
-  const handleSyncSubmit = async (values: any) => {
+  const handleSyncClick = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
     try {
-      setIsSyncing(true);
-      
-      // 同步开始后立即隐藏对话框
-      setSyncModalVisible(false);
-      
-      // 构造同步参数
-      const params: any = {
-        sync: true
-      };
-      
-      if (values.date) {
-        params.date = format(values.date.toDate(), 'yyyy-MM-dd');
-      }
-      
-      if (values.platform && values.platform !== 'all') {
-        params.platform = values.platform;
-      }
-      
-      // 如果平台是美团或所有平台，连接WebSocket
-      if (values.platform === 'meituan' || values.platform === 'all') {
-        connectWebSocket();
-      }
-      
-      // 调用同步API
-      const response = await salesAPI.fetchData(params);
-      
-      if (response.data.success) {
-        // 同步请求发送成功，提示用户等待
-        message.success('数据同步已完成');
-        setIsSyncing(false);
-        // 同步完成后自动刷新页面数据
-        handleRefresh();
-      } else {
-        message.error(response.data.message || '同步失败');
-        setIsSyncing(false);
-      }
+      await salesAPI.fetchData({ sync: true });
+      message.success('数据同步成功');
+      const values = form.getFieldsValue();
+      loadSalesRecords(values);
     } catch (error) {
-      message.error('同步请求失败，请稍后再试');
+      message.error('数据同步失败');
+    } finally {
       setIsSyncing(false);
     }
   };
-  
-
 
   // 按父子关系对机构列表进行分组
   const groupOrgsByParent = () => {
@@ -357,70 +357,53 @@ const SalesDataPage: React.FC = () => {
 
   // 处理分页变化
   const handlePaginationChange = (page: number, size: number) => {
+    // 先更新页码，这样用户可以看到页码变化
     setCurrentPage(page);
     if (pageSize !== size) {
       setPageSize(size);
     }
     
-    // 分页变化后立即加载数据
-    setIsRefreshing(true);
-    setIsLoadingData(true);
-    
+    // 获取当前表单的值并加载数据
     const values = form.getFieldsValue();
-    const params: any = { 
-      skip: (page - 1) * size, 
-      limit: size 
-    };
-    
-    // 添加筛选条件
-    if (values) {
-      if (values.org_id) {
-        // Cascader返回的是数组格式，取最后一个值（可能是父机构或子机构ID）
-        const orgId = Array.isArray(values.org_id) ? values.org_id[values.org_id.length - 1] : values.org_id;
-        // 使用org_name作为name参数
-        const warehouseName = getOrgNameById(orgId);
-        params.name = warehouseName;
-      }
-      if (values.dateRange && values.dateRange.length === 2) {
-        params.start_date = format(values.dateRange[0].toDate(), 'yyyy-MM-dd');
-        params.end_date = format(values.dateRange[1].toDate(), 'yyyy-MM-dd');
-      }
-    }
-    
-    // 直接调用API
-    salesAPI.getSalesRecords(params)
-      .then(response => {
-        if (response.data.success) {
-          const items = response.data.data?.items || [];
-          const total = response.data.data?.pageInfo?.totalCount || items.length;
-          const summary = response.data.data?.summary;
-          
-          const recordsData: SalesRecordListResponse = {
-            items,
-            total,
-            current: page,
-            pageSize: size,
-            summary
-          };
-          
-          setSalesRecords(recordsData);
-          setError(null);
-        } else {
-          setError('获取销售记录失败');
-        }
-      })
-      .catch(err => {
-        setError('获取销售记录失败，请稍后再试');
-      })
-      .finally(() => {
-        setIsLoadingData(false);
-        setIsRefreshing(false);
-      });
+    loadSalesRecords({
+      ...values,
+      pageSize: size,
+      current: page
+    }, false, true);
   };
 
   // 表格变化处理函数
   const onTableChange = (pagination: any, filters: any, sorter: any) => {
     // 只处理排序等其他变化，分页由单独的分页组件处理
+  };
+
+  // 监听滚动加载
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore && !isLoadingData && isMobile && salesRecords?.items?.length) {
+      const values = form.getFieldsValue();
+      loadSalesRecords(values, true);
+    }
+  }, [inView, hasMore, isLoadingMore, isLoadingData, isMobile, salesRecords?.items?.length]);
+
+  // 监听滚动位置
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleScroll = () => {
+      const summaryCard = document.querySelector('.summary-card');
+      if (summaryCard) {
+        const rect = summaryCard.getBoundingClientRect();
+        setShowBackTop(rect.top <= 24); // 修改判断条件，当卡片顶部到达吸顶位置时显示按钮
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isMobile]);
+
+  // 回到顶部
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (isLoading) {
@@ -481,6 +464,9 @@ const SalesDataPage: React.FC = () => {
             onFinish={handleFormSubmit}
             className={`${isMobile ? 'space-y-3' : 'flex flex-wrap gap-3 items-end'}`}
             size={isMobile ? "middle" : "middle"}
+            initialValues={{
+              dateRange: [dayjs(), dayjs()]
+            }}
           >
             <Form.Item
               name="org_id"
@@ -496,7 +482,13 @@ const SalesDataPage: React.FC = () => {
                 }}
                 className={isMobile ? "w-full" : "w-56"}
                 size={isMobile ? "middle" : "middle"}
-                dropdownStyle={{ minWidth: '200px' }}
+                styles={{
+                  popup: {
+                    root: {
+                      minWidth: '200px'
+                    }
+                  }
+                }}
                 expandTrigger="hover"
                 changeOnSelect={true}
               />
@@ -518,7 +510,6 @@ const SalesDataPage: React.FC = () => {
                     locale={zhCN.DatePicker}
                     inputReadOnly={true}
                     style={{ caretColor: 'transparent' }}
-                    defaultValue={dayjs()}
                   />
                   <span className="flex items-center text-gray-400">至</span>
                   <DatePicker 
@@ -531,7 +522,6 @@ const SalesDataPage: React.FC = () => {
                     locale={zhCN.DatePicker}
                     inputReadOnly={true}
                     style={{ caretColor: 'transparent' }}
-                    defaultValue={dayjs()}
                   />
                 </div>
               ) : (
@@ -543,7 +533,6 @@ const SalesDataPage: React.FC = () => {
                   locale={zhCN.DatePicker}
                   inputReadOnly={true}
                   style={{ caretColor: 'transparent' }}
-                  defaultValue={[dayjs(), dayjs()]}
                 />
               )}
             </Form.Item>
@@ -576,86 +565,75 @@ const SalesDataPage: React.FC = () => {
 
         {/* 销售数据表格 */}
         <div>
-          <SalesDataTable
-            data={salesRecords}
-            isLoading={isLoadingData}
-            onChange={onTableChange}
-            className="w-full"
-          />
-          {!isMobile && salesRecords && salesRecords.total > 10 && (
-            <div className="flex justify-end p-4">
-              <Pagination
-                current={currentPage}
-                pageSize={pageSize}
-                total={salesRecords?.total || 0}
-                onChange={handlePaginationChange}
-                showSizeChanger
-                showQuickJumper
-                showTotal={(total) => `共 ${total} 条记录`}
-                size="default"
-                pageSizeOptions={["10", "20", "50", "100"]}
-                defaultPageSize={10}
-                locale={{
-                  items_per_page: ' 条/页',
-                  jump_to: '跳至',
-                  jump_to_confirm: '确定',
-                  page: '页',
-                  prev_page: '上一页',
-                  next_page: '下一页'
-                }}
+          {isMobile ? (
+            <MobileSalesTable
+              data={salesRecords}
+              isLoading={isLoadingData}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+              className="w-full"
+              onLoadMore={() => {
+                if (hasMore && !isLoadingMore) {
+                  const values = form.getFieldsValue();
+                  loadSalesRecords(values, true);
+                }
+              }}
+            />
+          ) : (
+            <div>
+              <DesktopSalesTable
+                data={salesRecords}
+                isLoading={isLoadingData}
+                onChange={onTableChange}
+                className="w-full"
               />
+              {/* 桌面端分页 */}
+              {salesRecords?.items && salesRecords.items.length > 0 && (
+                <div className="flex justify-end p-4 w-full">
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={salesRecords?.total || 0}
+                    onChange={handlePaginationChange}
+                    showSizeChanger
+                    showQuickJumper
+                    showTotal={(total) => `共 ${total} 条记录`}
+                    size="default"
+                    pageSizeOptions={["10", "20", "50", "100"]}
+                    defaultPageSize={10}
+                    locale={{
+                      items_per_page: ' 条/页',
+                      jump_to: '跳至',
+                      jump_to_confirm: '确定',
+                      page: '页',
+                      prev_page: '上一页',
+                      next_page: '下一页'
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* 移动端分页 */}
-        {isMobile && salesRecords && salesRecords.total > 0 && (
-          <div className="bg-white rounded-xl shadow-md mt-4 p-4">
-            <Pagination
-              current={currentPage}
-              pageSize={pageSize}
-              total={salesRecords.total}
-              onChange={handlePaginationChange}
-              showSizeChanger
-              showTotal={(total) => `共 ${total} 条记录`}
-              size="small"
-              className="flex justify-center flex-wrap"
-              pageSizeOptions={["10", "20", "50", "100"]}
-              defaultPageSize={10}
-              simple={false}
-              showQuickJumper={false}
-              locale={{
-                items_per_page: ' 条/页',
-                jump_to: '跳至',
-                jump_to_confirm: '确定',
-                page: '页',
-                prev_page: '上一页',
-                next_page: '下一页'
-              }}
-            />
-          </div>
-        )}
-
         {/* 移动端浮动按钮 */}
         {isMobile && (
           <>
-            <FloatButton.Group
-              trigger="click"
+            {showBackTop && (
+              <FloatButton
+                icon={<VerticalAlignTopOutlined />}
+                className='mb-4'
+                onClick={scrollToTop}
+                style={{ right: 24, bottom: 90 }}
+              />
+            )}
+            <FloatButton
+              icon={isSyncing ? <SyncOutlined spin /> : <SyncOutlined />}
+              tooltip={isSyncing ? '正在同步数据' : '同步数据'}
+              onClick={() => !isSyncing && handleSyncClick()}
               type="primary"
               style={{ right: 24 }}
-              icon={<PlusOutlined />}
-            >
-              <FloatButton
-                icon={<PlusOutlined />}
-                tooltip="新增记录"
-                onClick={() => router.push('/sales/data/new')}
-              />
-              <FloatButton
-                icon={isSyncing ? <SyncOutlined spin /> : <SyncOutlined />}
-                tooltip={isSyncing ? '正在同步数据' : '同步数据'}
-                onClick={() => !isSyncing && handleSyncClick()}
-              />
-            </FloatButton.Group>
+            />
           </>
         )}
       </div>
@@ -672,7 +650,7 @@ const SalesDataPage: React.FC = () => {
         <Form
           form={syncForm}
           layout="vertical"
-          onFinish={handleSyncSubmit}
+          onFinish={handleSyncClick}
         >
           <Form.Item
             name="date"
@@ -721,7 +699,6 @@ const SalesDataPage: React.FC = () => {
           </div>
         </Form>
       </Modal>
-
 
     </Layout>
   );
