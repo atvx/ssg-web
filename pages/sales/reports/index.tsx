@@ -250,6 +250,7 @@ const SalesReportsPage: React.FC = () => {
                     value={dayjs(date)}
                     onChange={handleDateChange}
                     className="w-full"
+                    locale={zhCN.DatePicker}
                   />
                 )}
               </div>

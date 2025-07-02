@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { PlusIcon, PencilIcon, TrashIcon, ArrowPathIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Table, Pagination, ConfigProvider, Button, Select, Input, Tree, Tag, Spin, Modal, message, Alert, Card, Space, Empty } from 'antd';
+import { Table, Pagination, ConfigProvider, Button, Select, Input, Tree, Tag, Spin, Modal, message, Alert, Card, Space, Empty, FloatButton, Cascader } from 'antd';
 import { HomeOutlined, EnvironmentOutlined, ShopOutlined, PlusOutlined, ReloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { DataNode } from 'antd/es/tree';
@@ -11,6 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Layout from '@/components/layout/Layout';
 import { orgsAPI } from '@/lib/api';
 import { OrgListItem } from '@/types/api';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
+import { useInView } from 'react-intersection-observer';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -59,14 +61,23 @@ const OrganizationsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [orgNameFilter, setOrgNameFilter] = useState<string>('');
   const [orgCodeFilter, setOrgCodeFilter] = useState<string>('');
-  const [selectedOrgType, setSelectedOrgType] = useState<string>('');
+  const [selectedOrgType, setSelectedOrgType] = useState<string>('1');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
-  const [title, setTitle] = useState<string>("组织列表");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const pageSizeMobile = 10; // 固定移动端每次加载数量
+  const [title, setTitle] = useState<string>("总部列表");
   const [isTreeExpanded, setIsTreeExpanded] = useState<boolean>(false);
   const isMobile = useIsMobile();
+  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
+
+  // 监控滚动到底部
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '100px 0px'
+  });
 
   // 检查用户权限
   const hasAdminPermission = user?.is_superuser === true;
@@ -220,6 +231,9 @@ const OrganizationsPage: React.FC = () => {
     
     setFilteredOrgs(filtered);
     setTotal(filtered.length);
+    // 重置移动端分页
+    setCurrentPage(1);
+    setIsLoadingMore(false);
   };
 
   // 监听查询条件变化，重新筛选数据
@@ -326,40 +340,54 @@ const OrganizationsPage: React.FC = () => {
     setSelectedKeys(selectedKeys);
   };
 
-  // 获取当前页数据
+  // 获取移动端当前显示的数据
+  const getMobileData = () => {
+    return filteredOrgs.slice(0, currentPage * pageSizeMobile);
+  };
+
+  // 桌面端分页数据
   const getPaginatedData = () => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
     return filteredOrgs.slice(start, end);
   };
 
+  // 当滚动到底部时加载更多（移动端）
+  useEffect(() => {
+    if (!isMobile) return;
+    const hasMore = getMobileData().length < filteredOrgs.length;
+    if (inView && hasMore && !isLoadingMore) {
+      setIsLoadingMore(true);
+      // 模拟异步加载，可直接同步更新页数
+      setCurrentPage(prev => prev + 1);
+      setIsLoadingMore(false);
+    }
+  }, [inView, filteredOrgs, isLoadingMore, isMobile]);
+
   // 渲染移动端卡片
-  const renderMobileCard = (item: OrgListItem) => {
+  const renderMobileCard = (item: OrgListItem, index: number) => {
     const typeInfo = getOrgTypeInfo(item.org_type);
     
     return (
       <div 
         key={item.org_id} 
-        className="mb-3 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 active:scale-[0.98] transition-all duration-200"
+        className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 active:scale-[0.98] transition-all duration-200"
       >
         <div className="flex items-center justify-between">
           {/* 左侧主要信息 */}
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
-            {/* 类型图标 */}
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              item.org_type === 1 ? 'bg-blue-500' :
-              item.org_type === 2 ? 'bg-emerald-500' :
-              item.org_type === 3 ? 'bg-orange-500' :
-              'bg-gray-500'
+          <div className="flex items-center space-x-2.5 flex-1 min-w-0">
+            {/* 序号圆圈，从1开始 */}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              item.org_type === 2 ? 'bg-lime-500' : 'bg-orange-500'
             }`}>
-              <span className="text-white text-lg">
-                {typeInfo.icon}
+              <span className="text-white font-medium text-base">
+                {index + 1}
               </span>
             </div>
             
             {/* 机构信息 */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 <h3 className="text-base font-semibold text-gray-900 truncate">
                   {item.org_name}
                 </h3>
@@ -373,11 +401,11 @@ const OrganizationsPage: React.FC = () => {
                 </span>
               </div>
               
-              <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
+              <div className="mt-0.5 flex items-center space-x-3 text-xs text-gray-500">
                 <span className="font-mono">#{item.org_id}</span>
                 {item.parent_id && (
                   <span className="truncate">
-                    ↳ {getParentName(item.parent_id)}
+                    <span className="text-gray-400 mr-0.5">{getParentName(item.parent_id)}</span>
                   </span>
                 )}
               </div>
@@ -385,18 +413,18 @@ const OrganizationsPage: React.FC = () => {
           </div>
           
           {/* 右侧操作按钮 */}
-          <div className="flex items-center space-x-1 ml-3">
+          <div className="flex items-center space-x-1 ml-2">
             <button
               onClick={() => router.push(`/organizations/edit/${item.org_id}`)}
-              className="w-8 h-8 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
+              className="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
             >
-              <EditOutlined className="text-sm text-gray-600" />
+              <EditOutlined className="text-xs text-gray-600" />
             </button>
             <button
               onClick={() => handleDelete(item.org_id)}
-              className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors duration-200"
+              className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors duration-200"
             >
-              <DeleteOutlined className="text-sm text-red-600" />
+              <DeleteOutlined className="text-xs text-red-600" />
             </button>
           </div>
         </div>
@@ -460,6 +488,102 @@ const OrganizationsPage: React.FC = () => {
     },
   ];
 
+  // 按层级对机构分组
+  const groupOrgsByLevel = () => {
+    // 获取所有总部(org_type=1)
+    const headquarters = orgs.filter(org => org.org_type === 1);
+    
+    // 创建分层结构
+    interface HierarchyNode {
+      parent: OrgListItem;
+      children: HierarchyNode[];
+    }
+    
+    const buildHierarchy = (parentOrgs: OrgListItem[], parentLevel: number): HierarchyNode[] => {
+      return parentOrgs.map(parent => {
+        // 找到直接子节点
+        const children = orgs
+          .filter(org => org.parent_id === parent.org_id)
+          .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+          
+        return {
+          parent,
+          children: children.length > 0 ? buildHierarchy(children, parentLevel + 1) : []
+        };
+      });
+    };
+    
+    // 从总部开始构建
+    return buildHierarchy(headquarters.sort((a, b) => (a.sort || 0) - (b.sort || 0)), 1);
+  };
+  
+  // 将机构数据转换为Cascader所需的options格式
+  const getCascaderOptions = () => {
+    interface CascaderOption {
+      value: string;
+      label: string;
+      children?: CascaderOption[];
+    }
+    
+    const buildOptions = (orgsData: OrgListItem[]): CascaderOption[] => {
+      // 找到所有顶级机构(没有parent_id或parent_id不在当前列表中)
+      const topOrgs = orgsData.filter(org => 
+        org.org_type === 1 || 
+        !org.parent_id || 
+        !orgsData.some(o => o.org_id === org.parent_id)
+      );
+      
+      return topOrgs
+        .sort((a, b) => (a.sort || 0) - (b.sort || 0))
+        .map(org => {
+          // 找到该机构的所有直接子机构
+          const children = orgsData.filter(child => child.parent_id === org.org_id);
+          
+          // 创建选项
+          const option: CascaderOption = {
+            value: org.org_id,
+            label: org.org_name || org.org_id,
+            children: children.length > 0 ? buildOptions(children) : undefined
+          };
+          
+          return option;
+        });
+    };
+    
+    return buildOptions(orgs);
+  };
+  
+  // 处理级联选择器选择变化
+  const handleCascaderChange = (value: string[]) => {
+    if (value && value.length > 0) {
+      // 保存选择的ID
+      setSelectedOrgIds(value);
+      
+      // 获取最后一级选择的机构ID
+      const selectedOrgId = value[value.length - 1];
+      
+      // 设置选中的树节点(兼容树形结构)
+      setSelectedKeys([selectedOrgId]);
+      
+      // 更新标题
+      const selectedNode = orgs.find(org => org.org_id === selectedOrgId);
+      if (selectedNode && selectedNode.org_name) {
+        setTitle(`${selectedNode.org_name}的下级机构`);
+      } else {
+        setTitle("机构管理");
+      }
+      
+      // 清除机构类型筛选，因为已经通过级联选择了特定机构
+      setSelectedOrgType('');
+    } else {
+      // 如果清除选择，重置为总部视图
+      setSelectedOrgIds([]);
+      setSelectedKeys([]);
+      setSelectedOrgType('1');
+      setTitle("总部列表");
+    }
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen"><Spin size="large" /></div>;
   }
@@ -467,6 +591,9 @@ const OrganizationsPage: React.FC = () => {
   if (!isAuthenticated || !hasAdminPermission) {
     return null; // 等待重定向或无权限
   }
+  
+  // 启用下拉刷新
+  usePullToRefresh(handleRefresh, isMobile && isAuthenticated);
 
   return (
     <Layout>
@@ -484,24 +611,28 @@ const OrganizationsPage: React.FC = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2 self-end md:self-auto">
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={() => router.push('/organizations/new')}
-              className="rounded-lg"
-              size={isMobile ? "middle" : "middle"}
-            >
-              新增机构
-            </Button>
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={handleRefresh}
-              loading={isRefreshing}
-              className="rounded-lg"
-              size={isMobile ? "middle" : "middle"}
-            >
-              刷新
-            </Button>
+            {!isMobile && (
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={() => router.push('/organizations/new')}
+                className="rounded-lg"
+                size={isMobile ? "middle" : "middle"}
+              >
+                新增机构
+              </Button>
+            )}
+            {!isMobile && (
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={handleRefresh}
+                loading={isRefreshing}
+                className="rounded-lg"
+                size={isMobile ? "middle" : "middle"}
+              >
+                刷新
+              </Button>
+            )}
           </div>
         </div>
 
@@ -511,69 +642,96 @@ const OrganizationsPage: React.FC = () => {
         )}
 
         <div className="flex flex-col md:flex-row gap-4">
-          {/* 左侧树形结构 */}
-          <div className={`${isMobile ? 'w-full mb-4' : 'w-64'} bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden`}>
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-semibold text-gray-900">组织架构</h2>
-              <button
-                onClick={toggleTreeExpansion}
-                className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
-              >
-                {isTreeExpanded ? 
-                  <ChevronDownIcon className="h-3 w-3 text-gray-600" /> : 
-                  <ChevronRightIcon className="h-3 w-3 text-gray-600" />
-                }
-              </button>
+          {/* 左侧树形结构 - 仅在桌面端显示 */}
+          {!isMobile && (
+            <div className="w-64 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+                <h2 className="text-base font-semibold text-gray-900">组织架构</h2>
+                <button
+                  onClick={toggleTreeExpansion}
+                  className="w-6 h-6 rounded-md bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-colors duration-200"
+                >
+                  {isTreeExpanded ? 
+                    <ChevronDownIcon className="h-3 w-3 text-gray-600" /> : 
+                    <ChevronRightIcon className="h-3 w-3 text-gray-600" />
+                  }
+                </button>
+              </div>
+              <div className="p-3 max-h-[500px] overflow-auto">
+                {isLoadingData ? (
+                  <div className="flex justify-center py-8">
+                    <Spin size="small" />
+                  </div>
+                ) : (
+                  <Tree
+                    treeData={treeData}
+                    selectedKeys={selectedKeys}
+                    expandedKeys={expandedKeys}
+                    onSelect={handleTreeSelect}
+                    onExpand={(expandedKeys) => setExpandedKeys(expandedKeys)}
+                    blockNode
+                    className="custom-tree"
+                  />
+                )}
+              </div>
             </div>
-            <div className="p-3 max-h-[500px] overflow-auto">
-              {isLoadingData ? (
-                <div className="flex justify-center py-8">
-                  <Spin size="small" />
-                </div>
-              ) : (
-                <Tree
-                  treeData={treeData}
-                  selectedKeys={selectedKeys}
-                  expandedKeys={expandedKeys}
-                  onSelect={handleTreeSelect}
-                  onExpand={(expandedKeys) => setExpandedKeys(expandedKeys)}
-                  blockNode
-                  className="custom-tree"
-                />
-              )}
-            </div>
-          </div>
+          )}
 
           {/* 右侧内容区 */}
           <div className="flex-1">
             {/* 搜索筛选区 */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
-              <div className={`${isMobile ? 'flex flex-col space-y-3' : 'flex flex-wrap items-center gap-3'}`}>
-                <Input 
-                  placeholder="搜索机构名称" 
-                  value={orgNameFilter}
-                  onChange={(e) => setOrgNameFilter(e.target.value)}
-                  className={`${isMobile ? 'w-full h-10' : 'w-48'} rounded-xl border-gray-200`}
-                  allowClear
-                />
-                <Input 
-                  placeholder="搜索机构ID" 
-                  value={orgCodeFilter}
-                  onChange={(e) => setOrgCodeFilter(e.target.value)}
-                  className={`${isMobile ? 'w-full h-10' : 'w-48'} rounded-xl border-gray-200`}
-                  allowClear
-                />
-                <Select 
-                  placeholder="选择机构类型" 
-                  value={selectedOrgType || undefined}
-                  onChange={(value) => setSelectedOrgType(value)}
-                  className={`${isMobile ? 'w-full' : 'w-32'}`}
-                  allowClear
-                >
-                  <Option value="1">总部</Option>
-                  <Option value="2">区域</Option>
-                  <Option value="3">门店</Option>
-                </Select>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* 移动端机构选择器 */}
+                {isMobile && (
+                  <Cascader
+                    options={getCascaderOptions()}
+                    placeholder="选择机构"
+                    allowClear
+                    onChange={handleCascaderChange as any}
+                    className="w-full mb-2"
+                    size="middle"
+                    showSearch={{ filter: (inputValue, path) => 
+                      path.some(option => option.label && 
+                        (typeof option.label === 'string' ? 
+                          option.label.toLowerCase().indexOf(inputValue.toLowerCase()) > -1 : 
+                          false))
+                    }}
+                    expandTrigger="hover"
+                    changeOnSelect={true}
+                  />
+                )}
+                
+                {/* 桌面端筛选条件 */}
+                {!isMobile && (
+                  <>
+                    <Input 
+                      placeholder="搜索机构名称" 
+                      value={orgNameFilter}
+                      onChange={(e) => setOrgNameFilter(e.target.value)}
+                      className="w-48 rounded-xl border-gray-200"
+                      allowClear
+                    />
+                    <Input 
+                      placeholder="搜索机构ID" 
+                      value={orgCodeFilter}
+                      onChange={(e) => setOrgCodeFilter(e.target.value)}
+                      className="w-48 rounded-xl border-gray-200"
+                      allowClear
+                    />
+                    <Select 
+                      placeholder="选择机构类型" 
+                      value={selectedOrgType || undefined}
+                      onChange={(value) => setSelectedOrgType(value || '1')}
+                      className="w-32"
+                      allowClear={false}
+                    >
+                      <Option value="1">总部</Option>
+                      <Option value="2">区域</Option>
+                      <Option value="3">门店</Option>
+                    </Select>
+                  </>
+                )}
               </div>
             </div>
 
@@ -582,13 +740,14 @@ const OrganizationsPage: React.FC = () => {
               <div>
                 {isLoadingData ? (
                   <div className="flex flex-col justify-center items-center py-20">
-                    <Spin size="large" />
-                    <p className="mt-4 text-gray-600 text-sm">载入中...</p>
+                    <Spin size="large" tip="加载中..." />
                   </div>
-                ) : getPaginatedData().length > 0 ? (
-                  <div className="space-y-0">
-                    {getPaginatedData().map(item => renderMobileCard(item))}
-                  </div>
+                ) : getMobileData().length > 0 ? (
+                  <Spin spinning={isRefreshing} tip="加载中...">
+                    <div className="flex flex-col gap-3">
+                      {getMobileData().map((item, index) => renderMobileCard(item, index))}
+                    </div>
+                  </Spin>
                 ) : (
                   <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-gray-100">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -610,20 +769,22 @@ const OrganizationsPage: React.FC = () => {
                   </div>
                 )}
                 
-                {getPaginatedData().length > 0 && (
-                  <div className="flex justify-center mt-6">
-                    <div className="bg-white rounded-xl px-4 py-2 shadow-sm border border-gray-100">
-                      <Pagination
-                        current={currentPage}
-                        pageSize={pageSize}
-                        total={total}
-                        onChange={(page) => setCurrentPage(page)}
-                        size="small"
-                        simple
-                      />
+                {/* load more indicator */}
+                <div
+                  ref={loadMoreRef}
+                  className="h-16 flex items-center justify-center"
+                >
+                  {isLoadingMore && (
+                    <span className="text-sm text-gray-400">正在加载...</span>
+                  )}
+                  {!isLoadingMore && getMobileData().length === filteredOrgs.length && filteredOrgs.length > 0 && (
+                    <div className="flex items-center justify-center w-full py-2 text-gray-400">
+                      <div className="flex-1 h-[1px] bg-gray-200"></div>
+                      <span className="mx-4 whitespace-nowrap text-sm">没有更多数据了</span>
+                      <div className="flex-1 h-[1px] bg-gray-200"></div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -653,6 +814,17 @@ const OrganizationsPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* 移动端浮动按钮 */}
+        {isMobile && (
+          <FloatButton
+            icon={<PlusOutlined />}
+            tooltip="新增机构"
+            onClick={() => router.push('/organizations/new')}
+            type="primary"
+            style={{ right: 24 }}
+          />
+        )}
       </div>
     </Layout>
   );

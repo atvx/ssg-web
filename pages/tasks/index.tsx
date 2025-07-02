@@ -25,7 +25,8 @@ import {
   Card,
   Badge,
   Empty,
-  Avatar
+  Avatar,
+  FloatButton
 } from 'antd';
 import { 
   ExclamationCircleOutlined, 
@@ -43,6 +44,7 @@ import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
+import { useInView } from 'react-intersection-observer';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -87,6 +89,9 @@ const TasksPage: React.FC = () => {
   const [createTaskModalVisible, setCreateTaskModalVisible] = useState(false);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [form] = Form.useForm();
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const limit = 10;
 
   // 处理模态框关闭
   const handleModalClose = () => {
@@ -112,21 +117,37 @@ const TasksPage: React.FC = () => {
   }, [isAuthenticated, isLoading, router]);
 
   // 获取任务列表
-  const fetchTasks = async () => {
+  const fetchTasks = async (loadMore: boolean = false) => {
     if (isAuthenticated) {
       try {
-        setIsLoadingTasks(true);
+        if (loadMore) {
+          setIsLoadingMore(true);
+        } else {
+          setIsLoadingTasks(true);
+        }
         setError(null);
-        const response = await tasksAPI.getTasks();
+        const params = { skip: loadMore ? tasks.length : 0, limit };
+        const response = await tasksAPI.getTasks(params);
         if (response.data.success && response.data.data) {
-          setTasks(response.data.data as Task[]);
+          const newTasks = response.data.data as Task[];
+          if (loadMore) {
+            setTasks(prev => [...prev, ...newTasks]);
+          } else {
+            setTasks(newTasks);
+          }
+          // 判断是否还有更多
+          setHasMore(newTasks.length === limit);
         } else {
           setError('获取任务列表失败');
         }
       } catch (err) {
         setError('获取任务列表失败，请稍后再试');
       } finally {
-        setIsLoadingTasks(false);
+        if (loadMore) {
+          setIsLoadingMore(false);
+        } else {
+          setIsLoadingTasks(false);
+        }
       }
     }
   };
@@ -210,6 +231,15 @@ const TasksPage: React.FC = () => {
   // 移动端下拉刷新
   usePullToRefresh(handleRefreshAndKeepPosition, isMobile);
   
+  // 交叉观察器用于无限滚动
+  const { ref: loadMoreRef, inView } = useInView({ threshold: 0, rootMargin: '100px 0px' });
+
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore && !isLoadingTasks) {
+      fetchTasks(true);
+    }
+  }, [inView]);
+
   // 在任务加载完成后恢复滚动位置
   useEffect(() => {
     if (!isLoadingTasks && scrollPosition > 0) {
@@ -371,34 +401,40 @@ const TasksPage: React.FC = () => {
   const renderTaskListItem = (item: Task) => {
     // 根据状态获取相应的颜色和图标
     let statusIcon;
-    let bgColor;
+    let statusBg;
+    let statusTextColor;
     let statusText;
     
     switch(item.status) {
       case 'completed':
         statusIcon = <CheckCircleOutlined />;
-        bgColor = 'bg-emerald-50';
+        statusBg = 'bg-emerald-50';
+        statusTextColor = 'text-emerald-500';
         statusText = '已完成';
         break;
       case 'failed':
         statusIcon = <CloseCircleOutlined />;
-        bgColor = 'bg-red-50';
+        statusBg = 'bg-red-50';
+        statusTextColor = 'text-red-500';
         statusText = '失败';
         break;
       case 'running':
       case 'processing':
         statusIcon = <SyncOutlined spin />;
-        bgColor = 'bg-blue-50';
+        statusBg = 'bg-blue-50';
+        statusTextColor = 'text-blue-500';
         statusText = item.status === 'running' ? '运行中' : '处理中';
         break;
       case 'pending':
         statusIcon = <ClockCircleOutlined />;
-        bgColor = 'bg-amber-50';
+        statusBg = 'bg-amber-50';
+        statusTextColor = 'text-amber-500';
         statusText = '等待中';
         break;
       default:
         statusIcon = <ClockCircleOutlined />;
-        bgColor = 'bg-gray-50';
+        statusBg = 'bg-gray-50';
+        statusTextColor = 'text-gray-500';
         statusText = item.status;
     }
     
@@ -406,78 +442,103 @@ const TasksPage: React.FC = () => {
     const isRecent = timeDiff < 24 * 60 * 60 * 1000; // 24小时内
     
     return (
-      <div className="mb-3 overflow-hidden rounded-xl bg-white shadow-md border border-gray-100">
-        <div className={`px-4 py-3 flex justify-between items-center ${bgColor}`}>
+      <div className="mb-4 overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-50">
+        {/* 状态栏 */}
+        <div className={`px-4 py-3 flex justify-between items-center ${statusBg}`}>
           <div className="flex items-center">
-            <Avatar 
-              icon={statusIcon}
-              size="small"
-              className={`mr-2 ${
-                item.status === 'completed' ? 'bg-emerald-500' :
-                item.status === 'failed' ? 'bg-red-500' :
-                item.status === 'running' || item.status === 'processing' ? 'bg-blue-500' :
-                'bg-amber-500'
-              }`}
-            />
-            <span className="font-medium">{statusText}</span>
+            <span className={`${statusTextColor} mr-1.5`}>
+              {statusIcon}
+            </span>
+            <span className={`font-medium ${statusTextColor}`}>{statusText}</span>
           </div>
           <div className="text-xs text-gray-500">
             {isRecent ? '今日' : format(new Date(item.created_at), 'MM/dd')}
           </div>
         </div>
         
+        {/* 内容区 */}
         <div className="p-4">
-          <div className="flex justify-between items-center mb-3">
-            <div className="font-medium text-base">{getTaskTypeName(item.task_type)}</div>
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <div className="font-medium text-base">{getTaskTypeName(item.task_type)}</div>
+              <div className="text-xs text-gray-500 mt-1">ID: {item.id}</div>
+            </div>
             {item.progress !== undefined && (
-              <Badge 
-                status="processing" 
-                text={`${item.progress}%`} 
-                className="text-xs"
-              />
+              <div className="flex items-center">
+                <div className="h-1.5 w-16 bg-gray-100 rounded-full mr-1.5 overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-500 rounded-full" 
+                    style={{ width: `${item.progress}%` }}
+                  ></div>
+                </div>
+                <span className="text-xs text-blue-500">{item.progress}%</span>
+              </div>
             )}
           </div>
           
-          <div className="flex text-xs text-gray-500 mb-4">
-            <div className="flex flex-col">
-              <span>创建时间</span>
-              <span className="text-gray-700 mt-1">
+          {/* 时间信息 */}
+          <div className="grid grid-cols-3 gap-x-2 mb-4">
+            <div className="text-center">
+              <div className="text-xs text-gray-500 mb-1">开始时间</div>
+              <div className="text-sm text-gray-700">
                 {format(new Date(item.created_at), 'HH:mm:ss')}
-              </span>
+              </div>
             </div>
-            <div className="mx-4 border-r border-gray-100"></div>
-            <div className="flex flex-col">
-              <span>更新时间</span>
-              <span className="text-gray-700 mt-1">
+            <div className="text-center">
+              <div className="text-xs text-gray-500 mb-1">结束时间</div>
+              <div className="text-sm text-gray-700">
                 {format(new Date(item.updated_at), 'HH:mm:ss')}
-              </span>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-gray-500 mb-1">耗时</div>
+              <div className="text-sm text-gray-700 font-medium">
+                {(() => {
+                  const createdTime = new Date(item.created_at).getTime();
+                  const updatedTime = new Date(item.updated_at).getTime();
+                  const diffSeconds = Math.floor((updatedTime - createdTime) / 1000);
+                  if (diffSeconds < 60) {
+                    return `${diffSeconds}秒`;
+                  } else if (diffSeconds < 3600) {
+                    const minutes = Math.floor(diffSeconds / 60);
+                    const seconds = diffSeconds % 60;
+                    return `${minutes}分${seconds}秒`;
+                  } else {
+                    return `${Math.floor(diffSeconds / 3600)}小时${Math.floor((diffSeconds % 3600) / 60)}分钟`;
+                  }
+                })()}
+              </div>
             </div>
           </div>
           
-          <div className="flex justify-between">
+          {/* 操作按钮 */}
+          <div className="flex justify-between border-t border-gray-50 pt-3 mt-1">
             <Button
-              className="rounded-lg text-blue-600"
               type="text"
               icon={<EyeOutlined />}
               onClick={() => router.push(`/tasks/${item.id}`)}
+              className="text-blue-500 flex items-center"
+              size="small"
             >
               详情
             </Button>
             
-            <div className="space-x-1">
+            <div className="flex space-x-3">
               <Button
-                className="rounded-lg"
                 type="text"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleExecuteTask(item.id)}
                 loading={executingTaskIds.includes(item.id)}
                 disabled={['running', 'processing'].includes(item.status)}
+                className="text-gray-400"
+                size="small"
               />
               <Button
-                className="rounded-lg text-red-500"
                 type="text"
                 icon={<DeleteOutlined />}
                 onClick={() => handleDeleteTask(item.id)}
+                className="text-red-500"
+                size="small"
               />
             </div>
           </div>
@@ -509,15 +570,17 @@ const TasksPage: React.FC = () => {
               <Text type="secondary" className="text-sm md:text-base">查看和管理异步任务的状态和结果。</Text>
             </div>
             <Space className="self-end md:self-auto" wrap={isMobile} size={isMobile ? "small" : "middle"}>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={handleCreateTaskClick}
-                size={isMobile ? "middle" : "middle"}
-                className="rounded-lg"
-              >
-                创建任务
-              </Button>
+              {!isMobile && (
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={handleCreateTaskClick}
+                  size="middle"
+                  className="rounded-lg"
+                >
+                  创建任务
+                </Button>
+              )}
               {!isMobile && (
                 <Button 
                   icon={<SyncOutlined />} 
@@ -566,19 +629,22 @@ const TasksPage: React.FC = () => {
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
               )}
-              {tasks.length > 0 && (
-                <div className="flex justify-center mt-5 mb-2">
-                  <Button 
-                    type="default" 
-                    onClick={handleRefreshAndKeepPosition}
-                    loading={isLoadingTasks}
-                    icon={<SyncOutlined />}
-                    className="rounded-lg shadow-sm border-gray-200"
-                  >
-                    加载更多
-                  </Button>
-                </div>
-              )}
+              {/* 触底加载更多 */}
+              <div 
+                ref={loadMoreRef}
+                className="h-16 flex items-center justify-center"
+              >
+                {isLoadingMore && (
+                  <span className="text-sm text-gray-400">正在加载...</span>
+                )}
+                {!isLoadingMore && !hasMore && tasks.length > 0 && (
+                  <div className="flex items-center justify-center w-full py-2 text-gray-400">
+                    <div className="flex-1 h-[1px] bg-gray-200"></div>
+                    <span className="mx-4 whitespace-nowrap text-sm">没有更多数据了</span>
+                    <div className="flex-1 h-[1px] bg-gray-200"></div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <Table
@@ -598,6 +664,17 @@ const TasksPage: React.FC = () => {
           )}
         </div>
       </ConfigProvider>
+
+      {/* 移动端浮动按钮 */}
+      {isMobile && (
+        <FloatButton
+          icon={<PlusOutlined />}
+          tooltip="创建任务"
+          onClick={handleCreateTaskClick}
+          type="primary"
+          style={{ right: 24 }}
+        />
+      )}
 
       {/* 创建任务对话框 */}
       <Modal
@@ -620,12 +697,14 @@ const TasksPage: React.FC = () => {
             name="date"
             label="选择日期"
             rules={[{ required: true, message: '请选择日期' }]}
+            initialValue={dayjs()}
           >
             <DatePicker 
               style={{ width: '100%' }} 
               format="YYYY-MM-DD"
               placeholder="选择日期"
               className="rounded-lg"
+              locale={zhCN.DatePicker}
             />
           </Form.Item>
           

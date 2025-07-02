@@ -269,6 +269,7 @@ const EditTargetPage: React.FC = () => {
                     disabled={true}
                     size={isMobile ? "large" : "middle"}
                     placeholder="选择年月"
+                    locale={zhCN.DatePicker}
                   />
                 </Form.Item>
                 

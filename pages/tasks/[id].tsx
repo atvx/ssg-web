@@ -273,7 +273,7 @@ const TaskDetailPage: React.FC = () => {
       </Head>
 
       <ConfigProvider locale={zhCN}>
-        <div className="py-4 md:py-6 px-2 md:px-6">
+        <div className={`min-h-screen ${isMobile ? 'bg-white' : 'py-4 md:py-6 px-6 bg-gray-50'}`}>
           {/* 面包屑导航 - 仅在非移动端显示 */}
           {!isMobile && (
             <Breadcrumb 
@@ -289,21 +289,38 @@ const TaskDetailPage: React.FC = () => {
             />
           )}
 
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
-            <div className="flex items-center">
-              {isMobile && (
+          {/* 移动端顶部导航栏 */}
+          {isMobile && (
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center">
                 <Button
-                  type="default"
+                  type="text"
                   icon={<ArrowLeftOutlined />}
                   onClick={() => router.push('/tasks')}
                   size="middle"
-                  className="mr-3 flex items-center justify-center rounded-lg"
+                  className="flex items-center justify-center p-0 -ml-2"
                 />
-              )}
-              <Title level={isMobile ? 3 : 2} style={{ margin: 0 }}>任务详情</Title>
+                <span className="text-lg ml-1">任务详情</span>
+              </div>
+              <Button 
+                danger 
+                type="text"
+                icon={<DeleteOutlined />}
+                onClick={handleDeleteTask}
+                size="middle"
+                className="text-red-500"
+              >
+                删除
+              </Button>
             </div>
-            <Space wrap={isMobile} size={isMobile ? "small" : "middle"} className="self-end md:self-auto">
-              {!isMobile && (
+          )}
+
+          {!isMobile && (
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
+              <div className="flex items-center">
+                <Title level={isMobile ? 3 : 2} style={{ margin: 0 }}>任务详情</Title>
+              </div>
+              <Space wrap={isMobile} size={isMobile ? "small" : "middle"} className="self-end md:self-auto">
                 <Button 
                   icon={<ReloadOutlined />} 
                   onClick={handleRefresh}
@@ -313,17 +330,15 @@ const TaskDetailPage: React.FC = () => {
                 >
                   刷新
                 </Button>
-              )}
-              <Button 
-                danger 
-                icon={<DeleteOutlined />} 
-                onClick={handleDeleteTask}
-                size="middle"
-                className="rounded-lg flex items-center"
-              >
-                删除
-              </Button>
-              {!isMobile && (
+                <Button 
+                  danger 
+                  icon={<DeleteOutlined />} 
+                  onClick={handleDeleteTask}
+                  size="middle"
+                  className="rounded-lg flex items-center"
+                >
+                  删除
+                </Button>
                 <Button 
                   icon={<ArrowLeftOutlined />} 
                   onClick={() => router.push('/tasks')}
@@ -331,9 +346,9 @@ const TaskDetailPage: React.FC = () => {
                 >
                   返回
                 </Button>
-              )}
-            </Space>
-          </div>
+              </Space>
+            </div>
+          )}
 
           {/* 错误提示 */}
           {error && (
@@ -341,7 +356,7 @@ const TaskDetailPage: React.FC = () => {
               message={error} 
               type="error" 
               showIcon 
-              className="mb-5 rounded-lg" 
+              className={`mb-5 rounded-lg ${isMobile ? 'mx-5' : ''}`}
             />
           )}
 
@@ -352,79 +367,160 @@ const TaskDetailPage: React.FC = () => {
               <div className="mt-3 text-gray-500">加载任务信息...</div>
             </div>
           ) : task ? (
-            <div>
-              {/* 任务状态卡片 - 移动端和桌面端通用 */}
-              <Card className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100">
-                <div className="flex flex-col md:flex-row md:items-center">
-                  <div className={`p-4 md:p-6 ${statusInfo.bgColor} flex-shrink-0 w-full md:w-auto md:rounded-r-3xl`}>
-                    <div className="flex items-center justify-between md:justify-start md:flex-col">
-                      <div className="flex items-center">
-                        <Avatar 
-                          icon={statusInfo.icon} 
-                          size={44} 
-                          className={statusInfo.avatarBg}
-                        />
-                        <div className="ml-3">
-                          <div className={`text-lg font-medium ${statusInfo.textColor}`}>
-                            {statusInfo.text}
-                          </div>
-                          <div className="text-gray-500 text-xs">
-                            {getTaskTypeName(task.task_type)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {task.progress !== undefined && (
-                        <div className="md:mt-3 md:self-start">
-                          <Progress 
-                            percent={task.progress} 
-                            size="small" 
-                            status={
-                              task.status === 'failed' ? 'exception' : 
-                              task.status === 'completed' ? 'success' : 'active'
-                            }
-                          />
-                        </div>
-                      )}
+            <div className={isMobile ? 'px-5 py-4' : ''}>
+              {/* 状态信息 - 移动端风格 */}
+              {isMobile && (
+                <div className="bg-green-50 rounded-xl p-4 mb-6 flex items-center">
+                  <div className={`w-12 h-12 rounded-full ${statusInfo.avatarBg} flex items-center justify-center mr-4`}>
+                    <span className="text-white text-xl">
+                      {statusInfo.icon}
+                    </span>
+                  </div>
+                  <div>
+                    <div className={`text-lg font-medium ${statusInfo.textColor}`}>
+                      {statusInfo.text}
+                    </div>
+                    <div className="text-gray-600">
+                      所有平台
                     </div>
                   </div>
-                  
-                  <div className="p-4 md:p-6 flex-grow">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                      <div>
-                        <div className="text-gray-500 text-xs mb-1 flex items-center">
-                          <CalendarOutlined className="mr-1" /> 创建时间
+                </div>
+              )}
+              
+              {/* 桌面端状态卡片 */}
+              {!isMobile && (
+                <div className="mb-5 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:items-center">
+                    <div className={`p-4 md:p-6 ${statusInfo.bgColor} flex-shrink-0 w-full md:w-auto md:rounded-r-3xl`}>
+                      <div className="flex items-center justify-between md:justify-start md:flex-col">
+                        <div className="flex items-center">
+                          <Avatar 
+                            icon={statusInfo.icon} 
+                            size={44} 
+                            className={statusInfo.avatarBg}
+                          />
+                          <div className="ml-3">
+                            <div className={`text-lg font-medium ${statusInfo.textColor}`}>
+                              {statusInfo.text}
+                            </div>
+                            <div className="text-gray-500 text-xs">
+                              {getTaskTypeName(task.task_type)}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm">{format(new Date(task.created_at), isMobile ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd HH:mm:ss')}</div>
                       </div>
-                      
-                      <div>
-                        <div className="text-gray-500 text-xs mb-1 flex items-center">
-                          <CalendarOutlined className="mr-1" /> 更新时间
+                    </div>
+                    
+                    <div className="p-4 md:p-6 flex-grow">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                        <div>
+                          <div className="text-gray-500 text-xs mb-1 flex items-center">
+                            <CalendarOutlined className="mr-1" /> 创建时间
+                          </div>
+                          <div className="text-sm">{format(new Date(task.created_at), 'yyyy-MM-dd HH:mm:ss')}</div>
                         </div>
-                        <div className="text-sm">{format(new Date(task.updated_at), isMobile ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd HH:mm:ss')}</div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-gray-500 text-xs mb-1 flex items-center">
-                          <UserOutlined className="mr-1" /> 用户ID
+                        
+                        <div>
+                          <div className="text-gray-500 text-xs mb-1 flex items-center">
+                            <CalendarOutlined className="mr-1" /> 更新时间
+                          </div>
+                          <div className="text-sm">{format(new Date(task.updated_at), 'yyyy-MM-dd HH:mm:ss')}</div>
                         </div>
-                        <div className="text-sm">{task.user_id}</div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-gray-500 text-xs mb-1 flex items-center">
-                          <InfoCircleOutlined className="mr-1" /> 任务ID
+                        
+                        <div>
+                          <div className="text-gray-500 text-xs mb-1 flex items-center">
+                            <UserOutlined className="mr-1" /> 用户ID
+                          </div>
+                          <div className="text-sm">{task.user_id}</div>
                         </div>
-                        <div className="text-sm font-mono">{task.id}</div>
+                        
+                        <div>
+                          <div className="text-gray-500 text-xs mb-1 flex items-center">
+                            <InfoCircleOutlined className="mr-1" /> 任务ID
+                          </div>
+                          <div className="text-sm font-mono">{task.id}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </Card>
+              )}
 
-              {/* 任务参数 */}
-              {task.params && (
+              {/* 基本信息 - 移动端 */}
+              {isMobile && (
+                <div className="mb-6 grid grid-cols-2 gap-y-5">
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">创建时间</div>
+                    <div className="text-sm text-gray-900">{format(new Date(task.created_at), 'yyyy-MM-dd HH:mm')}</div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">更新时间</div>
+                    <div className="text-sm text-gray-900">{format(new Date(task.updated_at), 'yyyy-MM-dd HH:mm')}</div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">用户ID</div>
+                    <div className="text-sm text-gray-900">{task.user_id}</div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">任务ID</div>
+                    <div className="text-sm text-gray-900 font-mono">{task.id}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* 任务参数 - 移动端简约风格 */}
+              {task.params && isMobile && (
+                <div className="mb-8">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="text-base font-medium flex items-center">
+                      <div className="w-1 h-5 bg-blue-500 rounded-full mr-2"></div>
+                      任务参数
+                    </div>
+                    <Button
+                      type="text"
+                      icon={<CopyOutlined />}
+                      onClick={() => handleCopy(task.params)}
+                      size="small"
+                      className="text-gray-400 p-0"
+                    />
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-gray-700 leading-relaxed">
+                      {formatJson(task.params)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* 任务结果 - 移动端简约风格 */}
+              {task.result && isMobile && (
+                <div className="mb-8">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="text-base font-medium flex items-center">
+                      <div className="w-1 h-5 bg-green-500 rounded-full mr-2"></div>
+                      任务结果
+                    </div>
+                    <Button
+                      type="text"
+                      icon={<CopyOutlined />}
+                      onClick={() => handleCopy(task.result)}
+                      size="small"
+                      className="text-gray-400 p-0"
+                    />
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-gray-700 leading-relaxed">
+                      {formatJson(task.result)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* 任务参数 - 桌面端 */}
+              {task.params && !isMobile && (
                 <Card 
                   title={
                     <div className="flex items-center">
@@ -437,8 +533,7 @@ const TaskDetailPage: React.FC = () => {
                       复制
                     </Button>
                   }
-                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
+                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100"
                 >
                   <div className="overflow-x-auto">
                     <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
@@ -448,8 +543,8 @@ const TaskDetailPage: React.FC = () => {
                 </Card>
               )}
 
-              {/* 任务结果 */}
-              {task.result && (
+              {/* 任务结果 - 桌面端 */}
+              {task.result && !isMobile && (
                 <Card 
                   title={
                     <div className="flex items-center">
@@ -462,8 +557,7 @@ const TaskDetailPage: React.FC = () => {
                       复制
                     </Button>
                   }
-                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
+                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100"
                 >
                   <div className="overflow-x-auto">
                     <pre className="bg-gray-50 p-3 rounded-lg text-xs font-mono">
@@ -475,30 +569,58 @@ const TaskDetailPage: React.FC = () => {
 
               {/* 错误信息 */}
               {task.error && (
-                <Card 
-                  title={
-                    <div className="flex items-center">
-                      <CloseCircleOutlined className="mr-2 text-red-500" /> 
-                      <span>错误信息</span>
-                    </div>
-                  }
-                  className="mb-5 rounded-xl overflow-hidden shadow-sm border-gray-100" 
-                  styles={{ body: isMobile ? { padding: '12px' } : {} }}
-                >
-                  <Alert
-                    message="任务执行失败"
-                    description={
-                      <div className="overflow-x-auto mt-2">
-                        <pre className="bg-red-50 p-3 rounded-lg text-xs font-mono text-red-600">
-                          {task.error}
-                        </pre>
+                <div className={isMobile ? "mb-8" : "mb-5"}>
+                  {!isMobile && (
+                    <Card 
+                      title={
+                        <div className="flex items-center">
+                          <CloseCircleOutlined className="mr-2 text-red-500" /> 
+                          <span>错误信息</span>
+                        </div>
+                      }
+                      className="rounded-xl overflow-hidden shadow-sm border-gray-100"
+                    >
+                      <div className="p-4">
+                        <Alert
+                          message="任务执行失败"
+                          description={
+                            <div className="overflow-x-auto mt-2">
+                              <pre className="bg-red-50 p-3 rounded-lg text-xs font-mono text-red-600 whitespace-pre-wrap break-words">
+                                {task.error}
+                              </pre>
+                            </div>
+                          }
+                          type="error"
+                          showIcon
+                          className="border border-red-100 rounded-lg"
+                        />
                       </div>
-                    }
-                    type="error"
-                    showIcon
-                    className="border border-red-100 rounded-lg"
-                  />
-                </Card>
+                    </Card>
+                  )}
+                  {isMobile && (
+                    <div>
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="text-base font-medium flex items-center">
+                          <div className="w-1 h-5 bg-red-500 rounded-full mr-2"></div>
+                          错误信息
+                        </div>
+                      </div>
+                      <Alert
+                        message="任务执行失败"
+                        description={
+                          <div className="overflow-x-auto mt-2">
+                            <pre className="bg-red-50 p-3 rounded-lg text-xs font-mono text-red-600 whitespace-pre-wrap break-words">
+                              {task.error}
+                            </pre>
+                          </div>
+                        }
+                        type="error"
+                        showIcon
+                        className="border border-red-100 rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ) : (
@@ -506,7 +628,7 @@ const TaskDetailPage: React.FC = () => {
               status="404"
               title="任务不存在"
               subTitle="该任务可能已被删除或尚未创建"
-              className="rounded-xl bg-white shadow-sm border border-gray-100 mt-4"
+              className={`${isMobile ? 'mt-10' : 'mt-4 rounded-xl bg-white shadow-sm border border-gray-100'}`}
               extra={
                 <Button 
                   type="primary" 

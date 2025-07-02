@@ -244,6 +244,7 @@ const NewTargetPage: React.FC = () => {
                     format="YYYY年MM月"
                     size={isMobile ? "large" : "middle"}
                     placeholder="选择年月"
+                    locale={zhCN.DatePicker}
                   />
                 </Form.Item>
                 

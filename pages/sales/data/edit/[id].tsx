@@ -312,6 +312,7 @@ const EditSalesRecordPage: React.FC = () => {
                     format="YYYY-MM-DD"
                     size={isMobile ? "large" : "middle"}
                     placeholder="选择日期"
+                    locale={zhCN.DatePicker}
                   />
                 </Form.Item>
 

@@ -13,6 +13,8 @@ import Layout from '@/components/layout/Layout';
 import { salesAPI, orgsAPI } from '@/lib/api';
 import { MonthlySalesTarget, OrgListItem } from '@/types/api';
 import { ExclamationCircleOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined, BarChartOutlined, AimOutlined } from '@ant-design/icons';
+import { useInView } from 'react-intersection-observer';
+import { usePullToRefresh } from '@/lib/usePullToRefresh';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -65,7 +67,15 @@ const SalesTargetsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const isMobile = useIsMobile();
+
+  // 使用useInView钩子检测滚动到底部
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: '100px 0px'
+  });
 
   const { confirm } = Modal;
 
@@ -93,13 +103,7 @@ const SalesTargetsPage: React.FC = () => {
 
     fetchOrgs();
   }, [isAuthenticated]);
-
-  // 刷新数据
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadData();
-  };
-
+  
   // 安全的数据加载函数
   const loadData = async () => {
     if (!isAuthenticated) return;
@@ -115,6 +119,7 @@ const SalesTargetsPage: React.FC = () => {
       if (response.data.success && response.data.data) {
         setTargets(response.data.data.items || response.data.data);
         setTotal(response.data.data.total || (response.data.data.length || 0));
+        setHasMore((response.data.data.items || response.data.data).length >= pageSize);
         setError(null);
       } else {
         setError('获取目标失败');
@@ -126,6 +131,17 @@ const SalesTargetsPage: React.FC = () => {
       setIsRefreshing(false);
     }
   };
+  
+  // 刷新数据
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setCurrentPage(1); // 重置到第一页
+    setHasMore(true);  // 重置hasMore状态
+    loadData();
+  };
+  
+  // 启用下拉刷新
+  usePullToRefresh(handleRefresh, isMobile && isAuthenticated);
 
   // 监听筛选条件和分页变化，重新获取数据
   useEffect(() => {
@@ -145,6 +161,7 @@ const SalesTargetsPage: React.FC = () => {
         if (response.data.success && response.data.data) {
           setTargets(response.data.data.items || response.data.data);
           setTotal(response.data.data.total || (response.data.data.length || 0));
+          setHasMore((response.data.data.items || response.data.data).length >= pageSize);
           setError(null);
         } else {
           setError('获取目标失败');
@@ -168,6 +185,47 @@ const SalesTargetsPage: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, year, month, selectedOrgId, currentPage, pageSize]);
+
+  // 加载更多数据
+  const loadMoreData = async () => {
+    if (!isAuthenticated || isLoadingMore || !hasMore) return;
+    
+    try {
+      setIsLoadingMore(true);
+      const nextPage = currentPage + 1;
+      const params: any = { year, month, skip: (nextPage - 1) * pageSize, limit: pageSize };
+      if (selectedOrgId) {
+        params.org_id = selectedOrgId;
+      }
+      
+      const response = await salesAPI.getSalesTargets(params);
+      
+      if (response.data.success && response.data.data) {
+        const newItems = response.data.data.items || response.data.data;
+        if (newItems.length > 0) {
+          setTargets(prev => [...prev, ...newItems]);
+          setCurrentPage(nextPage);
+          setHasMore(newItems.length >= pageSize);
+        } else {
+          setHasMore(false);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      setError('加载更多数据失败，请稍后再试');
+      setHasMore(false);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+  
+  // 监听滚动到底部，触发加载更多
+  useEffect(() => {
+    if (inView && hasMore && !isLoadingMore && !isLoadingData && isMobile) {
+      loadMoreData();
+    }
+  }, [inView, hasMore, isLoadingMore, isLoadingData, isMobile]);
 
   // 获取机构名称
   const getOrgName = (orgId: string) => {
@@ -428,6 +486,7 @@ const SalesTargetsPage: React.FC = () => {
                   allowClear={false}
                   style={{ width: '100%', minWidth: '120px' }}
                   format="YYYY年MM月"
+                  locale={zhCN.DatePicker}
                 />
               </div>
               <div className="w-full md:w-auto">
@@ -547,22 +606,29 @@ const SalesTargetsPage: React.FC = () => {
                          
                          <div className="p-4">
                            <div className="mb-3">
-                             <div className="text-gray-500 text-xs">机构</div>
                              <div className="font-medium">{getOrgName(item.org_id)}</div>
                            </div>
                            
-                           <div className="grid grid-cols-2 gap-3 mb-4">
-                             <div>
-                               <div className="text-gray-500 text-xs">销售目标</div>
-                               <div className="font-medium">¥{targetIncome.toLocaleString()}</div>
+                           <div className="flex justify-between mb-4 text-center">
+                             <div className="flex-1">
+                               <div className="text-gray-500 text-xs">车辆配置</div>
+                               <div className="font-medium text-sm">{item.car_count || '-'}</div>
                              </div>
-                             <div>
-                               <div className="text-gray-500 text-xs">实际销售</div>
-                               <div className="font-medium">¥{Math.floor(actualIncome).toLocaleString()}</div>
+                             <div className="flex-1">
+                               <div className="text-gray-500 text-xs">目标</div>
+                               <div className="font-medium text-sm">¥{targetIncome.toLocaleString()}</div>
+                             </div>
+                             <div className="flex-1">
+                               <div className="text-gray-500 text-xs">累计车次</div>
+                               <div className="font-medium text-sm">{item.sold_car_count || '-'}</div>
+                             </div>
+                             <div className="flex-1">
+                               <div className="text-gray-500 text-xs">营业额</div>
+                               <div className="font-medium text-sm">¥{Math.floor(actualIncome).toLocaleString()}</div>
                              </div>
                            </div>
                            
-                           <div className="flex justify-end border-t border-gray-100 pt-3">
+                           <div className="flex justify-end border-t border-gray-100">
                              <Space>
                                <Button 
                                  type="text"
@@ -600,18 +666,21 @@ const SalesTargetsPage: React.FC = () => {
                   />
                 )}
                 
-                <div className="flex justify-center mt-4 mb-2">
-                  <Pagination
-                    current={currentPage}
-                    pageSize={pageSize}
-                    total={targets.length}
-                    onChange={(page) => {
-                      setCurrentPage(page);
-                      setPageSize(pageSize);
-                    }}
-                    size="small"
-                    simple
-                  />
+                {/* 加载状态和提示 */}
+                <div 
+                  ref={loadMoreRef}
+                  className="h-16 flex items-center justify-center"
+                >
+                  {isLoadingMore && (
+                    <span className="text-sm text-gray-400">正在加载...</span>
+                  )}
+                  {!isLoadingMore && !hasMore && targets.length > 0 && (
+                    <div className="flex items-center justify-center w-full py-2 text-gray-400">
+                      <div className="flex-1 h-[1px] bg-gray-200"></div>
+                      <span className="mx-4 whitespace-nowrap text-sm">没有更多数据了</span>
+                      <div className="flex-1 h-[1px] bg-gray-200"></div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -655,11 +724,6 @@ const SalesTargetsPage: React.FC = () => {
                   icon={<PlusOutlined />}
                   tooltip="新增目标"
                   onClick={() => router.push('/sales/targets/new')}
-                />
-                <FloatButton
-                  icon={<ReloadOutlined />}
-                  tooltip="刷新"
-                  onClick={handleRefresh}
                 />
                 <FloatButton
                   icon={<BarChartOutlined />}
