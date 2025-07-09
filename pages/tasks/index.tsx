@@ -45,6 +45,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { usePullToRefresh } from '@/lib/usePullToRefresh';
 import { useInView } from 'react-intersection-observer';
+import VerificationModal from '@/components/ui/VerificationModal';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -741,6 +742,9 @@ const TasksPage: React.FC = () => {
           </div>
         </Form>
       </Modal>
+
+      {/* 验证码模态框 */}
+      <VerificationModal />
     </Layout>
   );
 };

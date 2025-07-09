@@ -35,6 +35,7 @@ import { useInView } from 'react-intersection-observer';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import MobileSalesTable from '@/components/sales/MobileSalesTable';
 import DesktopSalesTable from '@/components/sales/DesktopSalesTable';
+import VerificationModal from '@/components/ui/VerificationModal';
 
 // 设置 dayjs 为中文
 dayjs.locale('zh-cn');
@@ -306,6 +307,10 @@ const SalesDataPage: React.FC = () => {
   const handleSyncClick = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
+    
+    // 建立WebSocket连接以接收验证码请求
+    connectWebSocket();
+    
     try {
       await salesAPI.fetchData({ sync: true });
       message.success('数据同步成功');
@@ -699,6 +704,9 @@ const SalesDataPage: React.FC = () => {
           </div>
         </Form>
       </Modal>
+
+      {/* 验证码模态框 */}
+      <VerificationModal />
 
     </Layout>
   );
