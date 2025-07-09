@@ -140,17 +140,72 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
     setCategory(e.target.value);
   };
 
+  // 处理市场数据（按城市聚合）
+  const processMarketData = useMemo(() => {
+    if (!apiData?.warehouses) return null;
+    
+    const warehouses = apiData.warehouses.filter(w => w.status === 1);
+    const marketMap = new Map<string, any>();
+    
+    warehouses.forEach(warehouse => {
+      let marketName = '';
+      if (warehouse.name.includes('重庆')) {
+        marketName = '重庆市场';
+      } else if (warehouse.name.includes('昆明')) {
+        marketName = '昆明市场';
+      } else if (warehouse.name.includes('成都')) {
+        marketName = '成都市场';
+      } else {
+        marketName = '其他市场';
+      }
+      
+      if (!marketMap.has(marketName)) {
+        marketMap.set(marketName, {
+          car_count: 0,
+          target_income: 0,
+          actual_income: 0,
+          sold_car_count: 0,
+          count: 0
+        });
+      }
+      
+      const market = marketMap.get(marketName);
+      market.car_count += warehouse.car_count;
+      market.target_income += warehouse.target_income;
+      market.actual_income += warehouse.actual_income;
+      market.sold_car_count += warehouse.sold_car_count;
+      market.count += 1;
+    });
+    
+    const markets = Array.from(marketMap.entries()).map(([name, data]) => ({
+      id: 0, // 市场聚合数据不需要具体ID
+      name,
+      status: 1,
+      car_count: data.car_count,
+      target_income: Math.round(data.target_income * 10) / 10,
+      actual_income: Math.round(data.actual_income * 10) / 10,
+      ach_rate: data.target_income > 0 ? Math.round((data.actual_income / data.target_income * 100) * 10) / 10 : 0,
+      per_car_income: data.car_count > 0 ? Math.round((data.actual_income / data.car_count) * 10) / 10 : 0,
+      sold_car_count: data.sold_car_count
+    }));
+    
+    return markets;
+  }, [apiData]);
+
   // 计算统计数据
   const stats = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses.filter(w => w.status === 1); // 只显示活跃仓库
-    const totalCarCount = warehouses.reduce((sum, w) => sum + w.car_count, 0);
-    const totalTarget = warehouses.reduce((sum, w) => sum + w.target_income, 0);
-    const totalActual = warehouses.reduce((sum, w) => sum + w.actual_income, 0);
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1) 
+      : processMarketData || [];
+    
+    const totalCarCount = dataSource.reduce((sum, w) => sum + w.car_count, 0);
+    const totalTarget = dataSource.reduce((sum, w) => sum + w.target_income, 0);
+    const totalActual = dataSource.reduce((sum, w) => sum + w.actual_income, 0);
     const totalAchRate = totalTarget > 0 ? (totalActual / totalTarget * 100) : 0;
     const totalPerCar = totalCarCount > 0 ? totalActual / totalCarCount : 0;
-    const totalSoldCars = warehouses.reduce((sum, w) => sum + w.sold_car_count, 0);
+    const totalSoldCars = dataSource.reduce((sum, w) => sum + w.sold_car_count, 0);
     
     return {
       carCount: totalCarCount,
@@ -160,17 +215,20 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
       perCarIncome: totalPerCar,
       soldCarCount: totalSoldCars,
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
     // 生成运营健康度矩阵图表配置
   const matrixOption = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses.filter(w => w.status === 1);
-    const actualIncomes = warehouses.map(w => w.actual_income);
-    const perCarIncomes = warehouses.map(w => w.per_car_income);
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1)
+      : processMarketData || [];
     
-    const matrixData = warehouses.map((w, i) => ({
+    const actualIncomes = dataSource.map(w => w.actual_income);
+    const perCarIncomes = dataSource.map(w => w.per_car_income);
+    
+    const matrixData = dataSource.map((w, i) => ({
       name: w.name,
       value: [actualIncomes[i], perCarIncomes[i]]
     }));
@@ -182,7 +240,11 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
       title: { text: '运营健康度矩阵 (效率 vs 规模)', left: 'center' },
       tooltip: {
         trigger: 'item',
-        formatter: (params: any) => `${params.data.name}<br/>实际金额: ${params.data.value[0].toLocaleString()}元<br/>车均收入: ${params.data.value[1]}元`
+        formatter: (params: any) => {
+          const actualAmount = params.data.value[0];
+          const perCarIncome = params.data.value[1];
+          return `${params.data.name}<br/>实际金额: ${actualAmount.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}元<br/>车均收入: ${perCarIncome.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}元`;
+        }
       },
       grid: { left: '10%', right: '15%', bottom: '15%', containLabel: true },
       xAxis: { 
@@ -190,14 +252,20 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         name: '实际金额 (规模贡献)', 
         nameLocation: 'middle', 
         nameGap: 35, 
-        splitLine: { show: false } 
+        splitLine: { show: false },
+        axisLabel: {
+          formatter: (value: number) => value.toLocaleString('zh-CN')
+        }
       },
       yAxis: { 
         type: 'value', 
         name: '车均收入 (运营效率)', 
         nameLocation: 'middle', 
         nameGap: 50, 
-        splitLine: { show: false } 
+        splitLine: { show: false },
+        axisLabel: {
+          formatter: (value: number) => value.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+        }
       },
       series: [{
         type: 'scatter',
@@ -231,16 +299,18 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         }
       }]
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
   // 生成运营效率排行榜图表配置（双向柱形图）
   const efficiencyOption = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses.filter(w => w.status === 1);
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1)
+      : processMarketData || [];
     
     // 按车均收入降序排列（高到低，从上到下显示）
-    const sortedWarehouses = warehouses
+    const sortedData = dataSource
       .map(w => ({ 
         name: w.name, 
         per_car_income: w.per_car_income,
@@ -248,9 +318,9 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
       }))
       .sort((a, b) => b.per_car_income - a.per_car_income);
     
-    const warehouseNames = sortedWarehouses.map(item => item.name);
-    const perCarIncomes = sortedWarehouses.map(item => item.per_car_income);
-    const soldCarCounts = sortedWarehouses.map(item => item.sold_car_count);
+    const warehouseNames = sortedData.map(item => item.name);
+    const perCarIncomes = sortedData.map(item => item.per_car_income);
+    const soldCarCounts = sortedData.map(item => item.sold_car_count);
     
     // 为了双向显示，将车均收入转换为负值（显示在左侧）
     const leftPerCarIncomes = perCarIncomes.map(value => -value);
@@ -265,9 +335,10 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
           let result = `${name}<br/>`;
           params.forEach((param: any) => {
             if (param.seriesName === '车均收入') {
-              result += `${param.seriesName}: ${Math.abs(param.value)} 元<br/>`;
+              const value = Math.abs(param.value);
+              result += `${param.seriesName}: ${value.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} 元<br/>`;
             } else if (param.seriesName === '累计车次') {
-              result += `${param.seriesName}: ${param.value} 次<br/>`;
+              result += `${param.seriesName}: ${param.value.toLocaleString()} 次<br/>`;
             }
           });
           return result;
@@ -313,7 +384,10 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
           label: { 
             show: true, 
             position: 'left', 
-            formatter: (params: any) => `${Math.abs(params.value)} 元`,
+            formatter: (params: any) => {
+              const value = Math.abs(params.value);
+              return `${value.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} 元`;
+            },
             fontSize: 10
           }
         },
@@ -332,16 +406,18 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         }
       ]
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
   // 生成南丁格尔玫瑰图配置
   const roseOption = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses.filter(w => w.status === 1);
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1)
+      : processMarketData || [];
     
     // 按实际营收降序排列
-    const roseData = warehouses
+    const roseData = dataSource
       .map(w => ({ name: w.name, value: w.actual_income }))
       .sort((a, b) => b.value - a.value);
     
@@ -349,7 +425,11 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
       title: { text: '营收贡献度', left: 'center' },
       tooltip: {
         trigger: 'item',
-        formatter: '{a} <br/>{b}: ¥{c} ({d}%)'
+        formatter: (params: any) => {
+          const value = params.value;
+          const formattedValue = value.toLocaleString('zh-CN');
+          return `${params.seriesName}<br/>${params.name}: ¥${formattedValue} (${params.percent}%)`;
+        }
       },
       series: [
         {
@@ -365,7 +445,11 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
             show: true,
             fontSize: 12,
             fontWeight: 'bold',
-            formatter: '{b}\n¥{c}',
+            formatter: (params: any) => {
+              const value = params.value;
+              const formattedValue = value.toLocaleString('zh-CN');
+              return `${params.name}\n¥${formattedValue}`;
+            },
             position: 'outside',
             alignTo: 'edge',
             margin: 20
@@ -386,27 +470,30 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         }
       ]
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
   // 生成目标达成区间分布漏斗图配置
   const funnelOption = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses.filter(w => w.status === 1);
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1)
+      : processMarketData || [];
     
-    // 统计各达成率区间的仓库数量和名称
-    const highWarehouses: string[] = []; // 80%~100%达成
-    const mediumWarehouses: string[] = []; // 50%~79%达成
-    const lowWarehouses: string[] = []; // 0%~49%达成
+    // 统计各达成率区间的数量和名称
+    const highItems: string[] = []; // 80%~100%达成
+    const mediumItems: string[] = []; // 50%~79%达成
+    const lowItems: string[] = []; // 0%~49%达成
+    const unitText = category === 'warehouse' ? '仓库' : '市场';
     
-    warehouses.forEach(w => {
+    dataSource.forEach(w => {
       const rate = w.target_income === 0 ? 100 : w.ach_rate;
       if (rate >= 80) {
-        highWarehouses.push(w.name);
+        highItems.push(w.name);
       } else if (rate >= 50) {
-        mediumWarehouses.push(w.name);
+        mediumItems.push(w.name);
       } else {
-        lowWarehouses.push(w.name);
+        lowItems.push(w.name);
       }
     });
     
@@ -426,17 +513,17 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
           let warehouseList = '';
           
           if (name.includes('优秀达成')) {
-            warehouseList = highWarehouses.length > 0 ? 
-              '<br/>仓库: ' + highWarehouses.join('、') : '<br/>暂无仓库';
+            warehouseList = highItems.length > 0 ? 
+              '<br/>' + unitText + ': ' + highItems.join('、') : '<br/>暂无' + unitText;
           } else if (name.includes('良好达成')) {
-            warehouseList = mediumWarehouses.length > 0 ? 
-              '<br/>仓库: ' + mediumWarehouses.join('、') : '<br/>暂无仓库';
+            warehouseList = mediumItems.length > 0 ? 
+              '<br/>' + unitText + ': ' + mediumItems.join('、') : '<br/>暂无' + unitText;
           } else if (name.includes('待改进')) {
-            warehouseList = lowWarehouses.length > 0 ? 
-              '<br/>仓库: ' + lowWarehouses.join('、') : '<br/>暂无仓库';
+            warehouseList = lowItems.length > 0 ? 
+              '<br/>' + unitText + ': ' + lowItems.join('、') : '<br/>暂无' + unitText;
           }
           
-          return `${name}<br/>数量: ${value} 个仓库<br/>占比: ${percent}%${warehouseList}`;
+          return `${name}<br/>数量: ${value} 个${unitText}<br/>占比: ${percent}%${warehouseList}`;
         }
       },
       color: ['#5470C6', '#91CC75', '#EE6666'],
@@ -452,17 +539,17 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         gap: 2,
         data: [
           { 
-            value: highWarehouses.length, 
+            value: highItems.length, 
             name: '优秀达成\n(80%~100%)',
             itemStyle: { color: '#5470C6' }
           },
           { 
-            value: mediumWarehouses.length, 
+            value: mediumItems.length, 
             name: '良好达成\n(50%~79%)',
             itemStyle: { color: '#91CC75' }
           },
           { 
-            value: lowWarehouses.length, 
+            value: lowItems.length, 
             name: '待改进\n(0%~49%)',
             itemStyle: { color: '#EE6666' }
           }
@@ -470,7 +557,7 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         label: {
           show: true,
           position: 'inside',
-          formatter: '{b}\n{c}个仓库',
+          formatter: '{b}\n{c}个' + unitText,
           fontSize: 14,
           fontWeight: 'bold',
           color: '#fff'
@@ -495,35 +582,37 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         }
       }]
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
   // 生成目标vs实际营收图表配置
   const chartOption = useMemo(() => {
     if (!apiData?.warehouses) return null;
     
-    const warehouses = apiData.warehouses
-      .filter(w => w.status === 1); // 按接口返回的原始顺序
+    const dataSource = category === 'warehouse' 
+      ? apiData.warehouses.filter(w => w.status === 1)
+      : processMarketData || [];
     
-    const warehouseNames = warehouses.map(w => w.name);
-    const actualIncomes = warehouses.map(w => w.actual_income);
+    const itemNames = dataSource.map(w => w.name);
+    const actualIncomes = dataSource.map(w => w.actual_income);
     
     // 处理差额：如果目标为0，差额为0；否则为 max(目标-实际, 0)
-    const gaps = warehouses.map(w => {
+    const gaps = dataSource.map(w => {
       if (w.target_income === 0) return 0;
       return Math.max(w.target_income - w.actual_income, 0);
     });
     
     // 处理达成率：如果目标为0，显示100%；否则显示实际达成率
-    const achRates = warehouses.map(w => {
+    const achRates = dataSource.map(w => {
       if (w.target_income === 0) return 100;
       return w.ach_rate; // 显示真实达成率，包括超过100%的情况
     });
     
-    const targetIncomes = warehouses.map(w => w.target_income);
+    const targetIncomes = dataSource.map(w => w.target_income);
+    const unitText = category === 'warehouse' ? '仓' : '市场';
     
     return {
       title: { 
-        text: '各仓目标 vs 实际 & 达成率', 
+        text: `各${unitText}目标 vs 实际 & 达成率`, 
         subtext: '目标 vs 实际 & 达成率', 
         left: 'center' 
       },
@@ -531,18 +620,18 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         trigger: 'axis', 
         axisPointer: { type: 'cross' },
         formatter: (params: any) => {
-          const warehouseIndex = warehouses.findIndex(w => w.name === params[0].axisValue);
-          const warehouse = warehouses[warehouseIndex];
-          const actual = warehouse.actual_income;
-          const target = warehouse.target_income;
-          const rate = target === 0 ? 100 : warehouse.ach_rate;
-          const soldCars = warehouse.sold_car_count;
+          const itemIndex = dataSource.findIndex(w => w.name === params[0].axisValue);
+          const item = dataSource[itemIndex];
+          const actual = item.actual_income;
+          const target = item.target_income;
+          const rate = target === 0 ? 100 : item.ach_rate;
+          const soldCars = item.sold_car_count;
           
           return `
-            ${warehouse.name}<br/>
+            ${item.name}<br/>
             累计车次：${soldCars.toLocaleString()} 次<br/>
-            目标：${target === 0 ? '无目标' : '¥' + target.toLocaleString()}<br/>
-            实际：¥${actual.toLocaleString()}<br/>
+            目标：${target === 0 ? '无目标' : '¥' + target.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}<br/>
+            实际：¥${actual.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}<br/>
             达成率：${rate.toFixed(1)}%
           `;
         }
@@ -553,7 +642,7 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
       },
       xAxis: [{ 
         type: 'category', 
-        data: warehouseNames, 
+        data: itemNames, 
         axisLabel: { interval: 0, rotate: 30 } 
       }],
       yAxis: [
@@ -597,7 +686,7 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
         }
       ]
     };
-  }, [apiData]);
+  }, [apiData, category, processMarketData]);
 
   // 生成动态排序柱状图配置和数据
   const areaStackedOption = useMemo(() => {
