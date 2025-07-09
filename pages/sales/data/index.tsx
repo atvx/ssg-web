@@ -531,7 +531,7 @@ const SalesDataPage: React.FC = () => {
                 </div>
               ) : (
                 <RangePicker 
-                  className="w-64"
+                  className="w-96"
                   size="middle"
                   placeholder={['开始日期', '结束日期']}
                   format="YYYY年MM月DD日"
