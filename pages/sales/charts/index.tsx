@@ -101,13 +101,21 @@ const SalesChartsPage: React.FC = () => {
 
     try {
       setSyncing(true);
+      
+      // 构建请求参数，当平台为 "all" 时不传递 platform 参数
+      const params: any = {
+        sync: isSync,
+        user_id: user.id,
+        date: date
+      };
+      
+      // 只有当平台不是 "all" 时才传递 platform 参数
+      if (platform !== 'all') {
+        params.platform = platform;
+      }
+      
       const response = await apiClient.get('/api/sales/fetch', {
-        params: {
-          sync: isSync,
-          user_id: user.id,
-          platform: platform,
-          date: date
-        }
+        params
       });
 
       if (response.data.success) {
