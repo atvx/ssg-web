@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useVerification } from '@/contexts/VerificationContext';
 import Layout from '@/components/layout/Layout';
 import SalesCharts from '@/components/sales/SalesCharts';
 import DailyReportContent from '@/components/sales/DailyReportContent';
@@ -14,6 +15,7 @@ import 'dayjs/locale/zh-cn';
 import zhCN from 'antd/lib/date-picker/locale/zh_CN';
 import ExcelJS from 'exceljs';
 import apiClient, { salesAPI } from '@/lib/api';
+import VerificationModal from '@/components/ui/VerificationModal';
 
 // 判断是否为移动设备的Hook
 const useIsMobile = () => {
@@ -39,6 +41,7 @@ const useIsMobile = () => {
 
 const SalesChartsPage: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { connectWebSocket } = useVerification();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<string>('daily');
   const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
@@ -119,6 +122,11 @@ const SalesChartsPage: React.FC = () => {
 
     try {
       setSyncing(true);
+      
+      // 如果平台是美团或所有平台，连接WebSocket以处理可能的验证码需求
+      if (platform === 'meituan' || platform === 'all') {
+        connectWebSocket();
+      }
       
       // 构建请求参数，当平台为 "all" 时不传递 platform 参数
       const params: any = {
@@ -525,6 +533,9 @@ const SalesChartsPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* 验证码模态框 */}
+      <VerificationModal />
     </Layout>
   );
 };
