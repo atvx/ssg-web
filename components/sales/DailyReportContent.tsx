@@ -268,7 +268,7 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
 
   return (
     <ConfigProvider locale={zhCN}>
-      <div className={`${className} ${isMobile ? '' : 'px-6'} py-4 md:py-6`}>
+      <div className={`${className} py-4`}>
         {/* 表格容器 */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           {loading ? (
