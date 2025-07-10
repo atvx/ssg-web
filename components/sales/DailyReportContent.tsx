@@ -29,13 +29,14 @@ interface WarehouseData {
 interface DailyReportContentProps {
   className?: string;
   selectedDate?: string;
+  refreshKey?: number;
 }
 
 // 添加排序类型定义
 type SortField = 'car_count' | 'daily_revenue' | 'daily_avg_revenue_cart' | 'daily_cart_count' | 'target_income' | 'actual_income' | 'ach_rate' | 'per_car_income' | 'sold_car_count';
 type SortOrder = 'ascend' | 'descend' | null;
 
-const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '', selectedDate }) => {
+const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '', selectedDate, refreshKey }) => {
   const [currentDate, setCurrentDate] = useState<dayjs.Dayjs>(dayjs(selectedDate || dayjs().format('YYYY-MM-DD')));
   const [tableData, setTableData] = useState<WarehouseData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,6 +44,8 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
   const isMobile = useIsMobile();
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>(null);
+  const [hideIndexColumn, setHideIndexColumn] = useState<boolean>(false);
+  const [scrollTimeout, setScrollTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // 格式化数字：移除不必要的小数点和零
   const formatNumber = (num: number): string => {
@@ -106,6 +109,22 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
     loadData();
   }, [currentDate]);
 
+  // 监听refreshKey变化，用于数据同步后刷新
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) {
+      loadData();
+    }
+  }, [refreshKey]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }, [scrollTimeout]);
+
   // 处理刷新
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -162,15 +181,62 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
     );
   };
 
+  // 处理表格滚动事件（带防抖）
+  const handleTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!isMobile) return;
+    
+    const scrollLeft = e.currentTarget.scrollLeft;
+    // 当滚动距离超过80px时隐藏序号列，这样可以为车辆配置列腾出更多空间
+    const shouldHide = scrollLeft > 80;
+    
+    // 清除之前的定时器
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+    
+    // 立即更新状态以获得及时响应
+    if (shouldHide !== hideIndexColumn) {
+      setHideIndexColumn(shouldHide);
+    }
+    
+    // 设置新的定时器，确保滚动结束后状态稳定
+    const newTimeout = setTimeout(() => {
+      const finalShouldHide = scrollLeft > 80;
+      if (finalShouldHide !== hideIndexColumn) {
+        setHideIndexColumn(finalShouldHide);
+      }
+    }, 50);
+    
+    setScrollTimeout(newTimeout);
+  };
+
   // 渲染表格
   const renderTable = () => {
     return (
-      <div className={`overflow-x-auto ${isMobile ? 'relative' : ''}`}>
+      <div 
+        className={`overflow-x-auto table-scroll-container ${isMobile ? 'relative' : ''}`}
+        onScroll={handleTableScroll}
+      >
         <table className={`divide-y divide-gray-200 ${isMobile ? 'min-w-max' : 'min-w-full'}`}>
           <thead className="bg-gray-50">
             <tr>
-              <th className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${isMobile ? 'sticky left-0 bg-gray-50 z-10 w-12' : ''}`}>序号</th>
-              <th className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${isMobile ? 'sticky left-12 bg-gray-50 z-10 border-gray-300 w-32 min-w-32 shadow-r' : ''}`}>名称</th>
+              {/* 序号列：在移动端使用动画控制显示/隐藏 */}
+              <th 
+                className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap table-column-transition ${
+                  isMobile ? 
+                    `sticky left-0 bg-gray-50 z-10 ${
+                      hideIndexColumn 
+                        ? 'w-0 px-0 opacity-0 transform -translate-x-full' 
+                        : 'w-12 opacity-100 transform translate-x-0'
+                    }` 
+                    : ''
+                }`}
+              >
+                <span className={`transition-opacity duration-300 ${hideIndexColumn && isMobile ? 'opacity-0' : 'opacity-100'}`}>
+                  序号
+                </span>
+              </th>
+              <th className={`px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap table-column-transition ${isMobile ? `sticky ${hideIndexColumn ? 'left-0' : 'left-12'} bg-gray-50 z-10 border-gray-300 w-32 min-w-32 shadow-r` : ''}`}>名称</th>
               <th 
                 className={`px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 ${isMobile ? 'min-w-20' : ''}`}
                 onClick={() => handleSort('car_count')}
@@ -233,8 +299,23 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
               
               return (
                 <tr key={item.id} className={`${isNewMarket ? 'border-t-2 border-gray-300' : ''}`}>
-                  <td className={`px-3 py-2 whitespace-nowrap text-sm text-gray-500 ${isMobile ? 'sticky left-0 bg-white z-10 w-12' : ''}`}>{index + 1}</td>
-                  <td className={`px-3 py-2 whitespace-nowrap ${isMobile ? 'sticky left-12 bg-white z-10 border-gray-300 w-32 min-w-32 shadow-r' : ''}`}>
+                  {/* 序号列：在移动端使用动画控制显示/隐藏 */}
+                  <td 
+                    className={`px-3 py-2 whitespace-nowrap text-sm text-gray-500 table-column-transition ${
+                      isMobile ? 
+                        `sticky left-0 bg-white z-10 ${
+                          hideIndexColumn 
+                            ? 'w-0 px-0 opacity-0 transform -translate-x-full' 
+                            : 'w-12 opacity-100 transform translate-x-0'
+                        }` 
+                        : ''
+                    }`}
+                  >
+                    <span className={`transition-opacity duration-300 ${hideIndexColumn && isMobile ? 'opacity-0' : 'opacity-100'}`}>
+                      {index + 1}
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 whitespace-nowrap table-column-transition ${isMobile ? `sticky ${hideIndexColumn ? 'left-0' : 'left-12'} bg-white z-10 border-gray-300 w-32 min-w-32 shadow-r` : ''}`}>
                     <div className="text-sm text-gray-900">{item.name}</div>
                   </td>
                   <td className={`px-3 py-2 whitespace-nowrap text-sm text-right text-gray-900 ${isMobile ? 'min-w-20' : ''}`}>{item.car_count}</td>
@@ -246,10 +327,11 @@ const DailyReportContent: React.FC<DailyReportContentProps> = ({ className = '',
                   <td className={`px-3 py-2 whitespace-nowrap text-sm text-center ${isMobile ? 'min-w-24' : ''}`}>
                     <span 
                       className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        item.ach_rate >= 100 ? 'bg-green-100 text-green-800' :
-                        item.ach_rate >= 80 ? 'bg-blue-100 text-blue-800' :
-                        item.ach_rate >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        item.ach_rate >= 80 ? 'bg-green-100 text-green-800' :
+                        item.ach_rate >= 60 ? 'bg-blue-100 text-blue-800' :
+                        item.ach_rate >= 40 ? 'bg-amber-100 text-amber-800' :
+                        item.ach_rate >= 20 ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {formatNumber(item.ach_rate)}%

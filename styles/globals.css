@@ -182,6 +182,53 @@ a {
   }
 }
 
+/* 表格列动画优化 */
+.table-column-transition {
+  transition: width 0.3s ease-in-out, 
+              opacity 0.3s ease-in-out, 
+              transform 0.3s ease-in-out,
+              padding 0.3s ease-in-out;
+  will-change: width, opacity, transform, padding;
+}
+
+/* 改善滚动性能 */
+.table-scroll-container {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.table-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.7);
+}
+
+/* 隐藏列的过渡效果 */
+.column-hiding {
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.column-showing {
+  max-width: 3rem;
+  opacity: 1;
+  transform: translateX(0);
+}
+
 /* 安全区域适配（针对带刘海的手机） */
 @supports (padding: max(0px)) {
   .safe-area-top {

@@ -6,14 +6,14 @@ import Layout from '@/components/layout/Layout';
 import SalesCharts from '@/components/sales/SalesCharts';
 import DailyReportContent from '@/components/sales/DailyReportContent';
 import MonthlySalesCharts from '@/components/sales/MonthlySalesCharts';
-import { Spin, Tabs, DatePicker, Button, Tooltip, message, Modal, Select, Radio } from 'antd';
+import { Spin, Tabs, DatePicker, Button, Tooltip, message, Modal, Select } from 'antd';
 import type { TabsProps } from 'antd';
 import { CloudUploadOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import zhCN from 'antd/lib/date-picker/locale/zh_CN';
 import ExcelJS from 'exceljs';
-import apiClient from '@/lib/api';
+import apiClient, { salesAPI } from '@/lib/api';
 
 // 判断是否为移动设备的Hook
 const useIsMobile = () => {
@@ -46,8 +46,8 @@ const SalesChartsPage: React.FC = () => {
   const [syncing, setSyncing] = useState<boolean>(false);
   const [syncModalVisible, setSyncModalVisible] = useState<boolean>(false);
   const [syncPlatform, setSyncPlatform] = useState<string>('all');
-  const [syncType, setSyncType] = useState<boolean>(true); // true=同步, false=异步
   const [syncDate, setSyncDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
+  const [refreshKey, setRefreshKey] = useState<number>(0); // 用于触发子组件数据刷新
   const isMobile = useIsMobile();
   
   // 长按相关状态
@@ -64,21 +64,36 @@ const SalesChartsPage: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, router]);
 
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current);
+        pressTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 确保初始化时两个日期选择器的值一致
+  useEffect(() => {
+    setSyncDate(selectedDate);
+  }, []); // 只在组件挂载时执行一次
+
   const tabItems: TabsProps['items'] = [
     {
       key: 'daily',
       label: '日',
-      children: <DailyReportContent selectedDate={selectedDate} />,
+      children: <DailyReportContent selectedDate={selectedDate} refreshKey={refreshKey} />,
     },
     {
       key: 'weekly',
       label: '周',
-      children: <SalesCharts className="mt-4" selectedDate={selectedDate} />,
+      children: <SalesCharts className="mt-4" selectedDate={selectedDate} refreshKey={refreshKey} />,
     },
     {
       key: 'monthly',
       label: '月',
-      children: <MonthlySalesCharts className="mt-4" selectedDate={selectedDate} />,
+      children: <MonthlySalesCharts className="mt-4" selectedDate={selectedDate} refreshKey={refreshKey} />,
     },
   ];
 
@@ -88,7 +103,10 @@ const SalesChartsPage: React.FC = () => {
 
   const handleDateChange = (date: dayjs.Dayjs | null) => {
     if (date) {
-      setSelectedDate(date.format('YYYY-MM-DD'));
+      const dateStr = date.format('YYYY-MM-DD');
+      setSelectedDate(dateStr);
+      // 联动更新同步弹窗中的日期
+      setSyncDate(dateStr);
     }
   };
 
@@ -114,17 +132,30 @@ const SalesChartsPage: React.FC = () => {
         params.platform = platform;
       }
       
-      const response = await apiClient.get('/api/sales/fetch', {
-        params
-      });
+      // 使用专门的同步API（支持长时间超时）
+      const response = await salesAPI.fetchData(params);
 
       if (response.data.success) {
-        message.success(isSync ? '同步数据成功' : '异步任务已创建');
+        message.success('数据同步成功');
+        
+        // 同步成功后刷新表格数据
+        setTimeout(() => {
+          setRefreshKey(prev => prev + 1);
+        }, 1000); // 延迟1秒刷新，确保后端数据已更新
+        
       } else {
         message.error(response.data.message || '同步失败');
       }
     } catch (error) {
-      message.error('同步失败：' + (error instanceof Error ? error.message : '未知错误'));
+      console.error('同步错误:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      
+      // 特殊处理超时错误
+      if (errorMessage.includes('timeout')) {
+        message.error('同步超时，数据量较大请稍后重试或联系管理员');
+      } else {
+        message.error('同步失败：' + errorMessage);
+      }
     } finally {
       setSyncing(false);
     }
@@ -132,15 +163,26 @@ const SalesChartsPage: React.FC = () => {
 
   // 处理同步按钮的鼠标按下事件
   const handleSyncMouseDown = () => {
+    // 如果正在同步，不允许任何操作
+    if (syncing) {
+      return;
+    }
+    
     pressStartTimeRef.current = Date.now();
     pressTimerRef.current = setTimeout(() => {
-      // 长按：显示设置弹窗
+      // 长按：显示设置弹窗，并确保弹窗日期与主页面一致
+      setSyncDate(selectedDate);
       setSyncModalVisible(true);
     }, 500); // 500ms后触发长按
   };
 
   // 处理同步按钮的鼠标抬起事件
   const handleSyncMouseUp = () => {
+    // 如果正在同步，不允许任何操作
+    if (syncing) {
+      return;
+    }
+    
     const pressDuration = Date.now() - pressStartTimeRef.current;
     
     if (pressTimerRef.current) {
@@ -156,6 +198,11 @@ const SalesChartsPage: React.FC = () => {
 
   // 处理鼠标离开事件（取消长按）
   const handleSyncMouseLeave = () => {
+    // 如果正在同步，不允许任何操作
+    if (syncing) {
+      return;
+    }
+    
     if (pressTimerRef.current) {
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = null;
@@ -165,18 +212,25 @@ const SalesChartsPage: React.FC = () => {
   // 确认同步设置
   const handleSyncConfirm = () => {
     setSyncModalVisible(false);
-    performSync(syncType, syncPlatform, syncDate);
+    performSync(true, syncPlatform, syncDate); // 统一使用同步方式
   };
 
   // 取消同步设置
   const handleSyncCancel = () => {
+    // 如果正在同步，不允许取消弹窗
+    if (syncing) {
+      return;
+    }
     setSyncModalVisible(false);
   };
 
   // 处理同步日期变化
   const handleSyncDateChange = (date: dayjs.Dayjs | null) => {
     if (date) {
-      setSyncDate(date.format('YYYY-MM-DD'));
+      const dateStr = date.format('YYYY-MM-DD');
+      setSyncDate(dateStr);
+      // 联动更新主页面的日期
+      setSelectedDate(dateStr);
     }
   };
 
@@ -362,16 +416,21 @@ const SalesChartsPage: React.FC = () => {
               style={{ width: isMobile ? 120 : 140 }}
               locale={zhCN}
             />
-            <Tooltip title="同步数据（短按直接同步，长按设置选项）">
+            <Tooltip title={syncing ? "同步中" : "同步数据"}>
               <Button 
                 icon={<SyncOutlined />} 
                 type="text" 
                 loading={syncing}
+                disabled={syncing}
                 onMouseDown={handleSyncMouseDown}
                 onMouseUp={handleSyncMouseUp}
                 onMouseLeave={handleSyncMouseLeave}
-                onTouchStart={handleSyncMouseDown}
-                onTouchEnd={handleSyncMouseUp}
+                onTouchStart={syncing ? undefined : handleSyncMouseDown}
+                onTouchEnd={syncing ? undefined : handleSyncMouseUp}
+                style={{
+                  opacity: syncing ? 0.6 : 1,
+                  cursor: syncing ? 'not-allowed' : 'pointer'
+                }}
               />
             </Tooltip>
             <Tooltip title="导出">
@@ -397,57 +456,72 @@ const SalesChartsPage: React.FC = () => {
 
       {/* 数据同步设置弹窗 */}
       <Modal
-        title="数据同步设置"
+        title="数据同步"
         open={syncModalVisible}
         onOk={handleSyncConfirm}
         onCancel={handleSyncCancel}
-        okText="创建任务"
+        okText={syncing ? "同步中..." : "开始同步"}
         cancelText="取消"
-        width={400}
+        width={420}
+        confirmLoading={syncing}
+        okButtonProps={{
+          disabled: syncing
+        }}
+        cancelButtonProps={{
+          disabled: syncing
+        }}
+        closable={!syncing}
+        maskClosable={!syncing}
       >
-        <div className="space-y-4">
+        <div className="space-y-5 pt-4">
+          {/* 选择日期 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <span className="text-red-500">*</span> 选择日期
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              选择日期 <span className="text-red-500">*</span>
             </label>
             <DatePicker
               value={dayjs(syncDate)}
               onChange={handleSyncDateChange}
               format="YYYY-MM-DD"
-              placeholder="选择同步日期"
+              placeholder="请选择同步日期"
               allowClear={false}
               style={{ width: '100%' }}
               locale={zhCN}
             />
           </div>
           
+          {/* 选择平台 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <span className="text-red-500">*</span> 选择平台
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              选择平台 <span className="text-red-500">*</span>
             </label>
             <Select
               value={syncPlatform}
               onChange={setSyncPlatform}
               style={{ width: '100%' }}
-              placeholder="选择平台"
-            >
-              <Select.Option value="all">所有平台</Select.Option>
-              <Select.Option value="duowei">多维</Select.Option>
-              <Select.Option value="meituan">美团</Select.Option>
-            </Select>
+              placeholder="请选择同步平台"
+              options={[
+                { value: 'all', label: '所有平台' },
+                { value: 'duowei', label: '多维' },
+                { value: 'meituan', label: '美团' }
+              ]}
+            />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              同步方式
-            </label>
-            <Radio.Group
-              value={syncType}
-              onChange={(e) => setSyncType(e.target.value)}
-            >
-              <Radio value={true}>同步</Radio>
-              <Radio value={false}>异步</Radio>
-            </Radio.Group>
+          {/* 温馨提示 */}
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-4 w-4 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-2">
+                <p className="text-sm text-blue-700">
+                  数据同步可能需要2-3分钟，请耐心等待。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </Modal>

@@ -9,6 +9,7 @@ import DailyTripsChart from './DailyTripsChart';
 interface SalesChartsProps {
   className?: string;
   selectedDate?: string;
+  refreshKey?: number;
 }
 
 interface WarehouseData {
@@ -39,7 +40,7 @@ interface ApiResponse {
 
 type CategoryType = 'warehouse' | 'market';
 
-const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate }) => {
+const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate, refreshKey }) => {
   const [category, setCategory] = useState<CategoryType>('warehouse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,32 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate 
 
     fetchData();
   }, [selectedDate]);
+
+  // 监听refreshKey变化，用于数据同步后刷新
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) {
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const queryDate = selectedDate || new Date().toISOString().split('T')[0];
+          const response = await salesAPI.getWeeklyStats({ query_date: queryDate });
+          
+          if (response.data.success) {
+            setApiData(response.data.data);
+          } else {
+            setError(response.data.message || '获取数据失败');
+          }
+        } catch (err: any) {
+          setError(err.response?.data?.message || '网络请求失败');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [refreshKey, selectedDate]);
 
   // 计算总计数据
   const calculateTotals = () => {

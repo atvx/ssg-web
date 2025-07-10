@@ -35,6 +35,7 @@ echarts.use([
 interface MonthlySalesChartsProps {
   className?: string;
   selectedDate?: string;
+  refreshKey?: number;
 }
 
 interface MonthlyWarehouse {
@@ -88,7 +89,7 @@ interface SalesRecordsData {
 
 type CategoryType = 'warehouse' | 'market';
 
-const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '', selectedDate }) => {
+const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '', selectedDate, refreshKey }) => {
   const [category, setCategory] = useState<CategoryType>('warehouse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +136,48 @@ const MonthlySalesCharts: React.FC<MonthlySalesChartsProps> = ({ className = '',
 
     fetchData();
   }, [selectedDate]);
+
+  // 监听refreshKey变化，用于数据同步后刷新
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) {
+      const fetchData = async () => {
+        try {
+          setLoading(true);
+          setRecordsLoading(true);
+          setError(null);
+          const queryDate = selectedDate || new Date().toISOString().split('T')[0];
+          
+          // 并行获取月度统计数据和销售记录数据
+          const [monthlyResponse, recordsResponse] = await Promise.all([
+            salesAPI.getMonthlyStats({ query_date: queryDate }),
+            salesAPI.getSalesRecordsStats({ query_date: queryDate })
+          ]);
+          
+          if (monthlyResponse.data?.code === 200 && monthlyResponse.data?.data) {
+            setApiData(monthlyResponse.data.data);
+          } else {
+            setError(monthlyResponse.data?.message || '月度数据格式错误');
+          }
+          
+          if (recordsResponse.data?.code === 200 && recordsResponse.data?.data) {
+            setSalesRecordsData(recordsResponse.data.data);
+          } else {
+            console.warn('销售记录数据获取失败:', recordsResponse.data?.message);
+          }
+          
+          setLoading(false);
+          setRecordsLoading(false);
+          
+        } catch (err: any) {
+          setError(err.response?.data?.message || '网络请求失败');
+          setLoading(false);
+          setRecordsLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [refreshKey, selectedDate]);
 
   const handleCategoryChange = (e: any) => {
     setCategory(e.target.value);
