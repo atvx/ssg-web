@@ -30,12 +30,9 @@ interface WarehouseData {
 }
 
 interface ApiResponse {
-  query_date: string;
-  date_ranges: {
-    this_week: { start: string; end: string; label: string };
-    last_week: { start: string; end: string; label: string };
-  };
-  warehouses: WarehouseData[];
+  success: boolean;
+  message: string;
+  data: WarehouseData[];
 }
 
 type CategoryType = 'warehouse' | 'market';
@@ -44,7 +41,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate,
   const [category, setCategory] = useState<CategoryType>('warehouse');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [apiData, setApiData] = useState<ApiResponse | null>(null);
+  const [apiData, setApiData] = useState<WarehouseData[] | null>(null);
 
   // 获取数据
   useEffect(() => {
@@ -101,7 +98,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate,
   const calculateTotals = () => {
     if (!apiData) return null;
     
-    const warehouses = apiData.warehouses;
+    const warehouses = apiData;
     const totalVehicleConfig = warehouses.reduce((sum, w) => sum + w.car_count, 0);
     const totalWeekSalesCurrent = warehouses.reduce((sum, w) => sum + w.this_week_sales, 0);
     const totalWeekSalesPrevious = warehouses.reduce((sum, w) => sum + w.last_week_sales, 0);
@@ -146,7 +143,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate,
   const processWarehouseData = () => {
     if (!apiData) return null;
     
-    const warehouses = apiData.warehouses;
+    const warehouses = apiData;
     return {
       names: warehouses.map(w => w.name),
       weeklySales: {
@@ -176,7 +173,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate,
   const processMarketData = () => {
     if (!apiData) return null;
     
-    const warehouses = apiData.warehouses;
+    const warehouses = apiData;
     const marketMap = new Map<string, any>();
     
     warehouses.forEach(warehouse => {
