@@ -766,40 +766,136 @@ const SalesChartsPage: React.FC = () => {
     // 添加数据行
     let rowIndex = 3;
     let sequenceNumber = 1;
+    const subtotalRows: number[] = []; // 记录所有合计行的行号
     
-    data.forEach((item: any) => {
-      const row = worksheet.getRow(rowIndex);
+    // 按城市分组数据
+    const cityGroups = {
+      '重庆': data.filter((item: any) => item.name.includes('重庆')),
+      '昆明': data.filter((item: any) => item.name.includes('昆明')),
+      '成都': data.filter((item: any) => item.name.includes('成都'))
+    };
+    
+    // 遍历每个城市组
+    Object.keys(cityGroups).forEach((cityName, cityIndex) => {
+      const cityData = cityGroups[cityName as keyof typeof cityGroups];
       
-      // 基本信息
-      row.getCell(1).value = sequenceNumber++; // 序号
-      row.getCell(2).value = item.name; // 区域
-      row.getCell(3).value = item.car_count || 0; // 车辆配置
+      // 添加该城市的所有数据行
+      cityData.forEach((item: any) => {
+        const row = worksheet.getRow(rowIndex);
+        
+        // 基本信息
+        row.getCell(1).value = sequenceNumber++; // 序号
+        row.getCell(2).value = item.name; // 区域
+        row.getCell(3).value = item.car_count || 0; // 车辆配置
+        
+        // 周销售额
+        row.getCell(4).value = item.this_week_sales || 0; // 本周
+        row.getCell(5).value = item.last_week_sales || 0; // 上周
+        row.getCell(6).value = { formula: `=IFERROR((D${rowIndex}-E${rowIndex})/E${rowIndex},"  ")` }; // 环比公式
+        
+        // 周日均
+        row.getCell(7).value = Math.round(item.this_week_avg || 0); // 本周
+        row.getCell(8).value = Math.round(item.last_week_avg || 0); // 上周
+        row.getCell(9).value = { formula: `=IFERROR((G${rowIndex}-H${rowIndex})/H${rowIndex},"  ")` }; // 环比公式
+        
+        // 周车次
+        row.getCell(10).value = item.this_week_cart || 0; // 本周
+        row.getCell(11).value = item.last_week_cart || 0; // 上周
+        row.getCell(12).value = { formula: `=IFERROR((J${rowIndex}-K${rowIndex})/K${rowIndex},"  ")` }; // 环比公式
+        
+        // 日均车次
+        row.getCell(13).value = item.this_daily_cart || 0; // 本周
+        row.getCell(14).value = item.last_daily_cart || 0; // 上周
+        row.getCell(15).value = { formula: `=IFERROR((M${rowIndex}-N${rowIndex})/N${rowIndex},"  ")` }; // 环比公式
+        
+        rowIndex++;
+      });
       
-      // 周销售额
-      row.getCell(4).value = item.this_week_sales || 0; // 本周
-      row.getCell(5).value = item.last_week_sales || 0; // 上周
-      row.getCell(6).value = { formula: `=IFERROR((D${rowIndex}-E${rowIndex})/E${rowIndex},"  ")` }; // 环比公式
-      
-      // 周日均
-      row.getCell(7).value = Math.round(item.this_week_avg || 0); // 本周
-      row.getCell(8).value = Math.round(item.last_week_avg || 0); // 上周
-      row.getCell(9).value = { formula: `=IFERROR((G${rowIndex}-H${rowIndex})/H${rowIndex},"  ")` }; // 环比公式
-      
-      // 周车次
-      row.getCell(10).value = item.this_week_cart || 0; // 本周
-      row.getCell(11).value = item.last_week_cart || 0; // 上周
-      row.getCell(12).value = { formula: `=IFERROR((J${rowIndex}-K${rowIndex})/K${rowIndex},"  ")` }; // 环比公式
-      
-      // 日均车次
-      row.getCell(13).value = item.this_daily_cart || 0; // 本周
-      row.getCell(14).value = item.last_daily_cart || 0; // 上周
-      row.getCell(15).value = { formula: `=IFERROR((M${rowIndex}-N${rowIndex})/N${rowIndex},"  ")` }; // 环比公式
-      
-      rowIndex++;
+      // 添加城市合计行
+      if (cityData.length > 0) {
+        subtotalRows.push(rowIndex); // 记录合计行行号
+        const subtotalRow = worksheet.getRow(rowIndex);
+        const startRow = rowIndex - cityData.length; // 该城市数据开始行
+        const endRow = rowIndex - 1; // 该城市数据结束行
+        
+        // 合并A列和B列，并设置合计行信息
+        worksheet.mergeCells(`A${rowIndex}:B${rowIndex}`);
+        subtotalRow.getCell(1).value = `${cityName}合计`; // 合并后的单元格显示城市合计
+        subtotalRow.getCell(3).value = { formula: `=SUM(C${startRow}:C${endRow})` }; // 车辆配置合计
+        
+        // 周销售额合计
+        subtotalRow.getCell(4).value = { formula: `=SUM(D${startRow}:D${endRow})` }; // 本周合计
+        subtotalRow.getCell(5).value = { formula: `=SUM(E${startRow}:E${endRow})` }; // 上周合计
+        subtotalRow.getCell(6).value = { formula: `=IFERROR((D${rowIndex}-E${rowIndex})/E${rowIndex},"  ")` }; // 环比公式
+        
+        // 周日均合计
+        subtotalRow.getCell(7).value = { formula: `=SUM(G${startRow}:G${endRow})` }; // 本周合计
+        subtotalRow.getCell(8).value = { formula: `=SUM(H${startRow}:H${endRow})` }; // 上周合计
+        subtotalRow.getCell(9).value = { formula: `=IFERROR((G${rowIndex}-H${rowIndex})/H${rowIndex},"  ")` }; // 环比公式
+        
+        // 周车次合计
+        subtotalRow.getCell(10).value = { formula: `=SUM(J${startRow}:J${endRow})` }; // 本周合计
+        subtotalRow.getCell(11).value = { formula: `=SUM(K${startRow}:K${endRow})` }; // 上周合计
+        subtotalRow.getCell(12).value = { formula: `=IFERROR((J${rowIndex}-K${rowIndex})/K${rowIndex},"  ")` }; // 环比公式
+        
+        // 日均车次合计
+        subtotalRow.getCell(13).value = { formula: `=SUM(M${startRow}:M${endRow})` }; // 本周合计
+        subtotalRow.getCell(14).value = { formula: `=SUM(N${startRow}:N${endRow})` }; // 上周合计
+        subtotalRow.getCell(15).value = { formula: `=IFERROR((M${rowIndex}-N${rowIndex})/N${rowIndex},"  ")` }; // 环比公式
+        
+        rowIndex++;
+      }
     });
+    
+    // 添加总计行
+    const totalRowNumber = rowIndex; // 记录总计行行号
+    const totalRow = worksheet.getRow(rowIndex);
+    
+    // 使用数据直接计算总计（只对原始数据行求和，跳过合计行）
+    const allCityData = data;
+    
+    // 重新计算总计（只对原始数据行求和，跳过合计行）
+    let totalCarCount = 0;
+    let totalThisWeekSales = 0;
+    let totalLastWeekSales = 0;
+    let totalThisWeekAvg = 0;
+    let totalLastWeekAvg = 0;
+    let totalThisWeekCart = 0;
+    let totalLastWeekCart = 0;
+    let totalThisDailyCart = 0;
+    let totalLastDailyCart = 0;
+    
+    allCityData.forEach(item => {
+      totalCarCount += item.car_count || 0;
+      totalThisWeekSales += item.this_week_sales || 0;
+      totalLastWeekSales += item.last_week_sales || 0;
+      totalThisWeekAvg += Math.round(item.this_week_avg || 0);
+      totalLastWeekAvg += Math.round(item.last_week_avg || 0);
+      totalThisWeekCart += item.this_week_cart || 0;
+      totalLastWeekCart += item.last_week_cart || 0;
+      totalThisDailyCart += item.this_daily_cart || 0;
+      totalLastDailyCart += item.last_daily_cart || 0;
+    });
+    
+    // 合并A列和B列，并设置总计行信息
+    worksheet.mergeCells(`A${rowIndex}:B${rowIndex}`);
+    totalRow.getCell(1).value = '总计'; // 合并后的单元格显示总计
+    totalRow.getCell(3).value = totalCarCount;
+    totalRow.getCell(4).value = totalThisWeekSales;
+    totalRow.getCell(5).value = totalLastWeekSales;
+    totalRow.getCell(6).value = { formula: `=IFERROR((D${rowIndex}-E${rowIndex})/E${rowIndex},"  ")` };
+    totalRow.getCell(7).value = totalThisWeekAvg;
+    totalRow.getCell(8).value = totalLastWeekAvg;
+    totalRow.getCell(9).value = { formula: `=IFERROR((G${rowIndex}-H${rowIndex})/H${rowIndex},"  ")` };
+    totalRow.getCell(10).value = totalThisWeekCart;
+    totalRow.getCell(11).value = totalLastWeekCart;
+    totalRow.getCell(12).value = { formula: `=IFERROR((J${rowIndex}-K${rowIndex})/K${rowIndex},"  ")` };
+    totalRow.getCell(13).value = totalThisDailyCart;
+    totalRow.getCell(14).value = totalLastDailyCart;
+    totalRow.getCell(15).value = { formula: `=IFERROR((M${rowIndex}-N${rowIndex})/N${rowIndex},"  ")` };
 
-    // 计算实际的最后一行（减去多余的rowIndex）
-    const lastRow = rowIndex - 1;
+    // 计算实际的最后一行（包括总计行）
+    const lastRow = rowIndex;
 
     // 设置所有单元格样式
     for (let i = 1; i <= lastRow; i++) {
@@ -812,6 +908,13 @@ const SalesChartsPage: React.FC = () => {
         // 字体设置
         if (i <= 2) {
           // 表头：字号11，加粗
+          cell.font = {
+            name: 'Microsoft YaHei',
+            size: 11,
+            bold: true
+          };
+        } else if (subtotalRows.includes(i) || i === totalRowNumber) {
+          // 合计行和总计行：字号11，加粗
           cell.font = {
             name: 'Microsoft YaHei',
             size: 11,
@@ -866,6 +969,16 @@ const SalesChartsPage: React.FC = () => {
         // 表头下方边框
         if (i === 2) {
           borderStyle.bottom = { style: 'medium' };
+        }
+        
+        // 合计行的上方边框
+        if (subtotalRows.includes(i)) {
+          borderStyle.top = { style: 'medium' };
+        }
+        
+        // 总计行的上方边框
+        if (i === totalRowNumber) {
+          borderStyle.top = { style: 'medium' };
         }
         
         // 主要分组之间的边框（每3列一组）
