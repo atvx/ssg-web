@@ -941,7 +941,7 @@ const SalesChartsPage: React.FC = () => {
           cell.numFmt = '0.0%';
         }
         
-        // 边框设置
+        // 边框设置 - 默认为细边框
         let borderStyle: any = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -949,41 +949,44 @@ const SalesChartsPage: React.FC = () => {
           right: { style: 'thin' }
         };
         
-        // 外围边框使用中等线
+        // 1. 表格外围边框（最外层）- 粗边框
         if (i === 1) {
-          // 第一行外围边框
+          // 第一行顶部边框
           borderStyle.top = { style: 'medium' };
-          if (j === 1) borderStyle.left = { style: 'medium' };
-          if (j === 15) borderStyle.right = { style: 'medium' };
-        } else if (i === lastRow) {
+        }
+        if (i === lastRow) {
           // 最后一行底部边框
           borderStyle.bottom = { style: 'medium' };
-          if (j === 1) borderStyle.left = { style: 'medium' };
-          if (j === 15) borderStyle.right = { style: 'medium' };
-        } else {
-          // 其他行的左右外围边框
-          if (j === 1) borderStyle.left = { style: 'medium' };
-          if (j === 15) borderStyle.right = { style: 'medium' };
+        }
+        if (j === 1) {
+          // 第一列左边框
+          borderStyle.left = { style: 'medium' };
+        }
+        if (j === 15) {
+          // 最后一列右边框
+          borderStyle.right = { style: 'medium' };
         }
         
-        // 表头下方边框
+        // 2. 表头下方边框 - 粗边框
         if (i === 2) {
           borderStyle.bottom = { style: 'medium' };
         }
         
-        // 合计行的上方边框
-        if (subtotalRows.includes(i)) {
-          borderStyle.top = { style: 'medium' };
-        }
-        
-        // 总计行的上方边框
-        if (i === totalRowNumber) {
-          borderStyle.top = { style: 'medium' };
-        }
-        
-        // 主要分组之间的边框（每3列一组）
+        // 3. 主要分组列之间的边框 - 粗边框
         if (j === 3 || j === 6 || j === 9 || j === 12) {
           borderStyle.right = { style: 'medium' };
+        }
+        
+        // 4. 合计行的上方和下方边框 - 粗边框
+        if (subtotalRows.includes(i)) {
+          borderStyle.top = { style: 'medium' };
+          borderStyle.bottom = { style: 'medium' };
+        }
+        
+        // 5. 总计行的上方和下方边框 - 粗边框
+        if (i === totalRowNumber) {
+          borderStyle.top = { style: 'medium' };
+          borderStyle.bottom = { style: 'medium' };
         }
         
         cell.border = borderStyle;
