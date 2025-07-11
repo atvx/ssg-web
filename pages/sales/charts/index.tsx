@@ -714,21 +714,21 @@ const SalesChartsPage: React.FC = () => {
     
     // 设置列宽 - 15列（A-O）
     worksheet.columns = [
-      { width: 6 },  // A - 序号
-      { width: 15 }, // B - 区域
+      { width: 7 },  // A - 序号
+      { width: 18 }, // B - 区域
       { width: 10 }, // C - 车辆配置
       { width: 10 }, // D - 周销售额本周
       { width: 10 }, // E - 周销售额上周
-      { width: 8 },  // F - 周销售额环比
+      { width: 10 }, // F - 周销售额环比
       { width: 10 }, // G - 周日均本周
       { width: 10 }, // H - 周日均上周
-      { width: 8 },  // I - 周日均环比
+      { width: 10 }, // I - 周日均环比
       { width: 10 }, // J - 周车次本周
       { width: 10 }, // K - 周车次上周
-      { width: 8 },  // L - 周车次环比
+      { width: 10 }, // L - 周车次环比
       { width: 10 }, // M - 日均车次本周
       { width: 10 }, // N - 日均车次上周
-      { width: 8 },  // O - 日均车次环比
+      { width: 10 }, // O - 日均车次环比
     ];
 
     // 创建第一行主标题的合并单元格
@@ -930,15 +930,33 @@ const SalesChartsPage: React.FC = () => {
         }
         
         // 对齐方式
+        let horizontalAlign = 'center'; // 默认居中
+        
+        // 特殊处理：普通数据行的B列左对齐
+        if (j === 2 && !subtotalRows.includes(i) && i !== totalRowNumber && i > 2) {
+          horizontalAlign = 'left';
+        }
+        // 合计行和总计行的第一列（合并单元格）居中对齐
+        else if ((subtotalRows.includes(i) || i === totalRowNumber) && j === 1) {
+          horizontalAlign = 'center';
+        }
+        
         cell.alignment = {
           vertical: 'middle',
-          horizontal: 'center',
+          horizontal: horizontalAlign,
           wrapText: true
         };
         
-        // 设置环比列的百分比格式
-        if ((j === 6 || j === 9 || j === 12 || j === 15) && i > 2) {
-          cell.numFmt = '0.0%';
+        // 设置数值格式（仅对数据行，不包括表头）
+        if (i > 2) {
+          // 数值列：D、E、G、H、J、K、M、N列 - 数值格式，0小数位，无千位分隔符
+          if ([4, 5, 7, 8, 10, 11, 13, 14].includes(j)) {
+            cell.numFmt = '0';
+          }
+          // 百分比列：F、I、L、O列 - 百分比格式，1位小数
+          else if ([6, 9, 12, 15].includes(j)) {
+            cell.numFmt = '0.0%';
+          }
         }
         
         // 边框设置 - 默认为细边框
@@ -977,9 +995,8 @@ const SalesChartsPage: React.FC = () => {
           borderStyle.right = { style: 'medium' };
         }
         
-        // 4. 合计行的上方和下方边框 - 粗边框
+        // 4. 合计行的下方边框 - 粗边框
         if (subtotalRows.includes(i)) {
-          borderStyle.top = { style: 'medium' };
           borderStyle.bottom = { style: 'medium' };
         }
         
@@ -992,6 +1009,32 @@ const SalesChartsPage: React.FC = () => {
         cell.border = borderStyle;
       }
     }
+
+    // 添加条件格式：环比列负数显示红色
+    const conditionalFormattingRanges = [
+      `F3:F${lastRow}`, // 周销售额环比
+      `I3:I${lastRow}`, // 周日均环比
+      `L3:L${lastRow}`, // 周车次环比
+      `O3:O${lastRow}`  // 日均车次环比
+    ];
+    
+    conditionalFormattingRanges.forEach(range => {
+      worksheet.addConditionalFormatting({
+        ref: range,
+        rules: [
+          {
+            type: 'cellIs',
+            operator: 'lessThan',
+            formulae: [0],
+            style: {
+              font: {
+                color: { argb: 'FFFF0000' } // 红色
+              }
+            }
+          }
+        ]
+      });
+    });
 
     // 冻结前两行
     worksheet.views = [

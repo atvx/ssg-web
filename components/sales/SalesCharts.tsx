@@ -5,6 +5,7 @@ import WeeklySalesChart from './WeeklySalesChart';
 import DailyAverageChart from './DailyAverageChart';
 import WeeklyTripsChart from './WeeklyTripsChart';
 import DailyTripsChart from './DailyTripsChart';
+import ClientOnly from '../ui/ClientOnly';
 
 interface SalesChartsProps {
   className?: string;
