@@ -421,6 +421,7 @@ const SalesChartsPage: React.FC = () => {
               placeholder="选择日期"
               allowClear={false}
               inputReadOnly={true}
+              disabledDate={(current) => current && current.isAfter(dayjs(), 'day')}
               size={isMobile ? "small" : "middle"}
               style={{ width: isMobile ? 120 : 140 }}
               locale={zhCN}
@@ -488,16 +489,17 @@ const SalesChartsPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               选择日期 <span className="text-red-500">*</span>
             </label>
-            <DatePicker
-              value={dayjs(syncDate)}
-              onChange={handleSyncDateChange}
-              format="YYYY-MM-DD"
-              placeholder="请选择同步日期"
-              allowClear={false}
-              inputReadOnly={true}
-              style={{ width: '100%' }}
-              locale={zhCN}
-            />
+                         <DatePicker
+               value={dayjs(syncDate)}
+               onChange={handleSyncDateChange}
+               format="YYYY-MM-DD"
+               placeholder="请选择同步日期"
+               allowClear={false}
+               inputReadOnly={true}
+               disabledDate={(current) => current && current.isAfter(dayjs(), 'day')}
+               style={{ width: '100%' }}
+               locale={zhCN}
+             />
           </div>
           
           {/* 选择平台 */}
