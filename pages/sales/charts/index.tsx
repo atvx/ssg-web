@@ -350,6 +350,7 @@ const SalesChartsPage: React.FC = () => {
               format="YYYY-MM-DD"
               placeholder="选择日期"
               allowClear={false}
+              inputReadOnly={true}
               size={isMobile ? "small" : "middle"}
               style={{ width: isMobile ? 120 : 140 }}
               locale={zhCN}
@@ -408,6 +409,7 @@ const SalesChartsPage: React.FC = () => {
               format="YYYY-MM-DD"
               placeholder="选择同步日期"
               allowClear={false}
+              inputReadOnly={true}
               style={{ width: '100%' }}
               locale={zhCN}
             />
