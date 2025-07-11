@@ -263,7 +263,7 @@ const SalesCharts: React.FC<SalesChartsProps> = ({ className = '', selectedDate,
       <div className={`space-y-6 ${className}`}>
         <Card title="各仓周环比" className="mb-6" variant="outlined">
           <div className="flex justify-center items-center py-20">
-            <Spin size="large" tip="加载中..." />
+            <Spin size="large" />
           </div>
         </Card>
       </div>
