@@ -405,8 +405,10 @@ const SalesChartsPage: React.FC = () => {
   const exportWeeklyReport = async () => {
     // 计算当前日期所在周的周一和周日
     const currentDate = dayjs(selectedDate);
-    const startOfWeek = currentDate.startOf('week').add(1, 'day'); // 周一
-    const endOfWeek = currentDate.endOf('week').add(1, 'day'); // 周日
+    const dayOfWeek = currentDate.day(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 计算距离周一的天数
+    const startOfWeek = currentDate.subtract(daysFromMonday, 'day'); // 周一
+    const endOfWeek = startOfWeek.add(6, 'day'); // 周日
     
     // 获取周报表数据
     const response = await apiClient.get('/api/sales/weekly-stats', {
