@@ -437,11 +437,14 @@ const SalesChartsPage: React.FC = () => {
     const citySubtotalRows = createDetailComparisonSheet(workbook, data);
 
     // 然后创建各个城市的汇总表，使用记录的行位置
-    Object.keys(cityGroups).forEach(city => {
+    const cityPromises = Object.keys(cityGroups).map(city => {
       const cityData = cityGroups[city as keyof typeof cityGroups];
       const subtotalRow = citySubtotalRows[city];
-      createCitySummarySheet(workbook, city, cityData, startOfWeek, endOfWeek, subtotalRow);
+      return createCitySummarySheet(workbook, city, cityData, startOfWeek, endOfWeek, subtotalRow);
     });
+    
+    // 等待所有城市汇总表创建完成
+    await Promise.all(cityPromises);
 
     // 生成文件并下载
     const fileName = `周汇报${startOfWeek.format('M.D')}-${endOfWeek.format('M.D')}.xlsx`;
@@ -462,16 +465,35 @@ const SalesChartsPage: React.FC = () => {
   };
 
   // 创建城市汇总表
-  const createCitySummarySheet = (workbook: any, cityName: string, cityData: any[], startOfWeek: any, endOfWeek: any, subtotalRow?: number) => {
-    const worksheet = workbook.addWorksheet(`${cityName}总销售`);
+  const createCitySummarySheet = async (workbook: any, cityName: string, cityData: any[], startOfWeek: any, endOfWeek: any, subtotalRow?: number) => {
+    // 获取市场数据
+    const orgResponse = await apiClient.get('/api/orgs/list', {
+      params: {
+        type: 2
+      }
+    });
     
-    // 备用计算值（当没有subtotalRow时使用）
+    if (!orgResponse.data.success) {
+      throw new Error(orgResponse.data.message || '获取市场数据失败');
+    }
+    
+    // 找到对应城市的市场数据
+    const cityOrg = orgResponse.data.data.find((org: any) => org.org_name.includes(cityName));
+    const perCarTarget = cityOrg ? parseFloat(cityOrg.per_car_target) || 0 : 0;
+    const costRate = cityOrg ? parseFloat(cityOrg.cost_rate) || 0.5 : 0.5;
+    
+    const worksheet = workbook.addWorksheet(`${cityName}周销售`);
+    
+    // 计算值
     const totalWeeklySales = cityData.reduce((sum, item) => sum + (item.this_week_sales || 0), 0);
     const totalLastWeeklySales = cityData.reduce((sum, item) => sum + (item.last_week_sales || 0), 0);
     const totalWeeklyTrips = cityData.reduce((sum, item) => sum + (item.this_week_cart || 0), 0);
     const totalLastWeeklyTrips = cityData.reduce((sum, item) => sum + (item.last_week_cart || 0), 0);
     const totalDailyAvg = cityData.reduce((sum, item) => sum + Math.round(item.this_week_avg || 0), 0);
     const totalLastDailyAvg = cityData.reduce((sum, item) => sum + Math.round(item.last_week_avg || 0), 0);
+    
+    // 获取月目标数据（所有仓的target_income总和）
+    const monthlyTarget = cityData.reduce((sum, item) => sum + (item.target_income || 0), 0);
     
     // 设置列宽 - A列10磅，其他列14磅
     worksheet.columns = [
@@ -532,16 +554,16 @@ const SalesChartsPage: React.FC = () => {
       worksheet.getCell('E4').value = { formula: `=各仓周环比明细!E${subtotalRow}` }; // 上周同期：周销售额上周
       worksheet.getCell('F4').value = { formula: `=(C4-E4)/E4` }; // 周环比：=(C4-E4)/E4
       
-      // 预估和周达成率使用计算值
-      worksheet.getCell('B4').value = { formula: '=C4*1.4' }; // 预估(周)
+      // 预估使用车次乘以车均目标
+      worksheet.getCell('B4').value = { formula: `=B9*${perCarTarget}` }; // 预估(周) = 周车次 * 车均目标
       worksheet.getCell('D4').value = { formula: '=C4/B4' }; // 周达成率
     } else {
-      // 备用方案：使用计算值
-      const estimatedSales = Math.round(totalWeeklySales * 1.4) || 245000;
+      // 使用计算值
+      const estimatedSales = Math.round(totalWeeklyTrips * perCarTarget) || 0;
       worksheet.getCell('B4').value = estimatedSales;
-      worksheet.getCell('C4').value = totalWeeklySales || 170663;
-      worksheet.getCell('D4').value = totalWeeklySales > 0 ? (totalWeeklySales / estimatedSales) : 0.7;
-      worksheet.getCell('E4').value = totalLastWeeklySales || 161042;
+      worksheet.getCell('C4').value = totalWeeklySales || 0;
+      worksheet.getCell('D4').value = totalWeeklySales > 0 && estimatedSales > 0 ? (totalWeeklySales / estimatedSales) : 0;
+      worksheet.getCell('E4').value = totalLastWeeklySales || 0;
       worksheet.getCell('F4').value = totalLastWeeklySales > 0 ? ((totalWeeklySales - totalLastWeeklySales) / totalLastWeeklySales) : 0;
     }
     
@@ -551,10 +573,9 @@ const SalesChartsPage: React.FC = () => {
     worksheet.getCell('D5').value = '累计达成率';
     
     // 第二行销售数据
-    const monthlyTarget = Math.round(totalWeeklySales * 6.5) || 1281000;
-    worksheet.getCell('B6').value = monthlyTarget;
-    worksheet.getCell('C6').value = totalWeeklySales || 194555;
-    worksheet.getCell('D6').value = totalWeeklySales > 0 ? (totalWeeklySales / monthlyTarget) : 0.152; // 累计达成率，百分比格式1位小数
+    worksheet.getCell('B6').value = monthlyTarget || 0;
+    worksheet.getCell('C6').value = totalWeeklySales || 0;
+    worksheet.getCell('D6').value = { formula: '=C6/B6' }; // 累计达成率 = 累计月销售/月目标
     
     // 为空单元格设置值（空字符串）以确保边框显示
     worksheet.getCell('E5').value = '';
@@ -569,7 +590,7 @@ const SalesChartsPage: React.FC = () => {
     // 出货 - A7="出货", B7:F7合并显示数据
     worksheet.getCell('A7').value = '出货';
     worksheet.mergeCells('B7:F7');
-    worksheet.getCell('B7').value = Math.round(totalWeeklySales * 0.57) || 97277;
+    worksheet.getCell('B7').value = { formula: `=C6*${costRate}` }; // 出货 = 累计月销售 * 成本率
     worksheet.getCell('B7').alignment = { 
       horizontal: 'center', 
       vertical: 'middle',
@@ -601,9 +622,9 @@ const SalesChartsPage: React.FC = () => {
       worksheet.getCell('E9').value = { formula: '=B9/7' }; // 周累积日均车次：=B9/7
       worksheet.getCell('F9').value = { formula: '=C9/7' }; // 上周累积日均车次：=C9/7
     } else {
-      // 备用方案：使用计算值
-      worksheet.getCell('B9').value = totalWeeklyTrips || 350;
-      worksheet.getCell('C9').value = totalLastWeeklyTrips || 378;
+      // 使用计算值
+      worksheet.getCell('B9').value = totalWeeklyTrips || 0;
+      worksheet.getCell('C9').value = totalLastWeeklyTrips || 0;
       worksheet.getCell('D9').value = totalLastWeeklyTrips > 0 ? ((totalWeeklyTrips - totalLastWeeklyTrips) / totalLastWeeklyTrips) : 0;
       worksheet.getCell('E9').value = { formula: '=B9/7' };
       worksheet.getCell('F9').value = { formula: '=C9/7' };
@@ -621,9 +642,9 @@ const SalesChartsPage: React.FC = () => {
       worksheet.getCell('C11').value = { formula: `=各仓周环比明细!H${subtotalRow}` }; // 上周日均：周日均上周
       worksheet.getCell('D11').value = { formula: '=(B11-C11)/C11' }; // 日均环比：=(B11-C11)/C11
     } else {
-      // 备用方案：使用计算值
-      worksheet.getCell('B11').value = Math.round(totalDailyAvg) || 488;
-      worksheet.getCell('C11').value = Math.round(totalLastDailyAvg) || 426;
+      // 使用计算值
+      worksheet.getCell('B11').value = Math.round(totalDailyAvg) || 0;
+      worksheet.getCell('C11').value = Math.round(totalLastDailyAvg) || 0;
       worksheet.getCell('D11').value = totalLastDailyAvg > 0 ? ((totalDailyAvg - totalLastDailyAvg) / totalLastDailyAvg) : 0;
     }
     
@@ -680,6 +701,7 @@ const SalesChartsPage: React.FC = () => {
           // 数值格式，小数位数0，不使用千位分隔符的单元格
           if ((i === 4 && [2, 3, 5].includes(j)) || // B4(预估周)、C4(实际周)、E4(上周同期)
               (i === 6 && [2, 3].includes(j)) ||     // B6(月目标)、C6(累计月销售)
+              (i === 7 && j === 2) ||                // B7(出货)
               (i === 9 && [2, 3, 5, 6].includes(j)) ||  // B9(周车次)、C9(上周车次)、E9(周累积日均车次)、F9(上周累积日均车次)
               (i === 11 && [2, 3].includes(j))) {    // B11(周日均)、C11(上周日均)
             cell.numFmt = '0';
@@ -752,6 +774,52 @@ const SalesChartsPage: React.FC = () => {
         cell.border = borderStyle;
       }
     }
+    
+    // 添加条件格式：负数显示红色
+    // 销售周环比 - F4
+    worksheet.addConditionalFormatting({
+      ref: 'F4',
+      rules: [
+        {
+          type: 'cellIs',
+          operator: 'lessThan',
+          formulae: [0],
+          style: {
+            font: { color: { argb: 'FFFF0000' } } // 红色
+          }
+        }
+      ]
+    });
+    
+    // 车周环比 - D9
+    worksheet.addConditionalFormatting({
+      ref: 'D9',
+      rules: [
+        {
+          type: 'cellIs',
+          operator: 'lessThan',
+          formulae: [0],
+          style: {
+            font: { color: { argb: 'FFFF0000' } } // 红色
+          }
+        }
+      ]
+    });
+    
+    // 日均环比 - D11
+    worksheet.addConditionalFormatting({
+      ref: 'D11',
+      rules: [
+        {
+          type: 'cellIs',
+          operator: 'lessThan',
+          formulae: [0],
+          style: {
+            font: { color: { argb: 'FFFF0000' } } // 红色
+          }
+        }
+      ]
+    });
   };
 
   // 创建各仓周环比明细表
