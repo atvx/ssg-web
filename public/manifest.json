@@ -1,0 +1,59 @@
+{
+  "name": "SSG销售助手",
+  "short_name": "SSG助手",
+  "description": "专业的销售数据管理和分析工具 - 您的智能销售伙伴",
+  "theme_color": "#1f2937",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/ssg.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/ssg.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/ssg.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "查看销售数据",
+      "short_name": "销售数据",
+      "description": "快速查看最新的销售数据和统计",
+      "url": "/sales/data",
+      "icons": [{ "src": "/icons/ssg.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "销售图表",
+      "short_name": "图表",
+      "description": "查看详细的销售图表和分析",
+      "url": "/sales/charts",
+      "icons": [{ "src": "/icons/ssg.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "导出报表",
+      "short_name": "报表",
+      "description": "生成和导出销售报表",
+      "url": "/sales/reports",
+      "icons": [{ "src": "/icons/ssg.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "lang": "zh-CN",
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+} 

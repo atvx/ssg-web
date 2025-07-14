@@ -181,10 +181,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 };
 
 // 自定义Hook，用于访问认证上下文
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth必须在AuthProvider内部使用');
+  
+  // 服务端渲染保护：如果在服务端或context未定义，返回默认值
+  if (typeof window === 'undefined' || context === undefined) {
+    return {
+      user: null,
+      isAuthenticated: false,
+      isLoading: true,
+      login: async () => false,
+      logout: () => {},
+      register: async () => false,
+      clearAutoLogin: () => {}
+    };
   }
+  
   return context;
 }; 
