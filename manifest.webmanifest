@@ -1,0 +1,37 @@
+{
+  "name": "兰宝宝",
+  "short_name": "兰宝宝",
+  "description": "专业的销售数据管理和分析工具",
+  "theme_color": "#1f2937",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icons/ssg.png",
+      "sizes": "72x72 96x96 128x128 144x144 152x152 192x192 384x384 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "查看销售数据",
+      "short_name": "销售数据",
+      "description": "快速查看最新的销售数据和统计",
+      "url": "/sales/data",
+      "icons": [{ "src": "/icons/ssg.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "销售图表", 
+      "short_name": "图表",
+      "description": "查看详细的销售图表和分析",
+      "url": "/sales/charts",
+      "icons": [{ "src": "/icons/ssg.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "zh-CN"
+} 

@@ -43,11 +43,12 @@ function MyApp({ Component, pageProps }: NextAppProps) {
         
         {/* PWA Meta Tags */}
         <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="SSG销售助手" />
-        <meta name="application-name" content="SSG销售助手" />
+        <meta name="apple-mobile-web-app-title" content="兰宝宝" />
+        <meta name="application-name" content="兰宝宝" />
         <meta name="theme-color" content="#1f2937" />
         <meta name="msapplication-TileColor" content="#1f2937" />
         <meta name="msapplication-tap-highlight" content="no" />
