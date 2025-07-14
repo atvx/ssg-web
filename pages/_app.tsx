@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Head from 'next/head';
 import { AppProps } from 'next/app';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -18,6 +18,20 @@ function MyApp({ Component, pageProps }: NextAppProps) {
   // 使用组件提供的布局或默认布局
   const getLayout = Component.getLayout ?? ((page) => page);
 
+  // 注册Service Worker（仅在浏览器端）
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('SW 注册成功:', registration);
+        })
+        .catch((error) => {
+          console.log('SW 注册失败:', error);
+        });
+    }
+  }, []);
+
   return (
     <>
       <Head>
@@ -25,7 +39,7 @@ function MyApp({ Component, pageProps }: NextAppProps) {
         <meta name="format-detection" content="telephone=no" />
         
         {/* 页面标题 */}
-        <title>销售助手</title>
+        <title>兰宝宝</title>
         
         {/* PWA Meta Tags */}
         <link rel="manifest" href="/manifest.json" />
